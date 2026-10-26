@@ -1,0 +1,7 @@
+test,n,median_diff,W,p,rank_biserial
+ECE: XGB gốc vs Isotonic,15,-0.0416602916064442,11.0,0.00335693359375,-0.8166666666666667
+FAR_motion: XGB gốc vs Isotonic,13,0.0,4.0,0.875,0.2
+FAR_motion: Isotonic vs Selective τ=0.8,13,0.0,0.0,0.0625,1.0
+FAR_motion: XGB gốc vs Selective τ=0.8,13,0.0,2.0,0.09375,0.8095238095238095
+F1: Isotonic (100%) vs Selective τ=0.8,15,-0.03936507936507938,31.0,0.5302845968336095,-0.20512820512820512
+F1: XGB gốc vs Isotonic,15,0.0,45.0,0.972125329731665,-0.01098901098901099

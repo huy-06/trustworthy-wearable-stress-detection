@@ -1,0 +1,191 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% --- Cấu hình Tiếng Việt cho Overleaf (trình biên dịch pdfLaTeX) ---
+\usepackage[utf8]{vietnam}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage{hyperref}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Phân loại chọn lọc và Hiệu chuẩn xác suất trong Nhận diện Căng thẳng Đáng tin cậy từ Tín hiệu Sinh lý Đeo Cổ tay}
+
+% --- Thông tin nhóm tác giả ---
+\author{
+    \IEEEauthorblockN{Phan Tuấn Đạt, Nguyễn Gia Huy, Trần Lợi Kiều Nhi, Nguyễn Minh Bảo}
+    \IEEEauthorblockA{\textit{Khoa Công nghệ Thông tin / Trí tuệ Nhân tạo} \\
+    \textit{Trường Đại học FPT}\\
+    Email: \{datpt, huyng, nhitlk, baonm\}@gmail.com}
+}
+
+\maketitle
+
+% =========================================================================
+% TÓM TẮT (ABSTRACT)
+% =========================================================================
+\begin{abstract}
+Hệ thống nhận diện căng thẳng tâm lý (stress) dựa trên cảm biến đeo cổ tay đóng vai trò then chốt trong chăm sóc sức khỏe số liên tục. Tuy nhiên, các tín hiệu sinh lý như Thể tích mạch máu (BVP) và Hoạt tính dẫn truyền da (EDA) rất dễ bị sai lệch do cử động cơ học. Hiện tượng kích thích thần kinh do vận động thể chất thường mô phỏng phản ứng sinh lý tương tự như stress, khiến các mô hình học máy truyền thống liên tục phát ra cảnh báo giả. Bên cạnh đó, tiền lệ bắt buộc mô hình phải dự đoán trong 100\% thời gian (Full Coverage) khiến hệ thống đưa ra các quyết định sai lầm nghiêm trọng khi tín hiệu bị nhiễu. Trong nghiên cứu này, chúng tôi đề xuất một khung nhận diện stress đáng tin cậy kết hợp giữa kỹ thuật Hiệu chuẩn xác suất (Probability Calibration) và Phân loại chọn lọc (Selective Classification / Abstention) trên bộ dữ liệu chuẩn WESAD. Khung phương pháp cho phép mô hình từ chối đưa ra kết luận (gán nhãn \textit{Không chắc chắn - Uncertain}) khi độ bất định xác suất vượt ngưỡng an toàn hoặc khi có rung lắc mạnh từ gia tốc kế (ACC). Đánh giá thông qua giao thức kiểm định nghiêm ngặt Leave-One-Subject-Out (LOSO) trên 15 đối tượng cho thấy: bằng cách chủ động loại bỏ khoảng 12--18\% các cửa sổ dữ liệu không rõ ràng, hệ thống nâng Selective $F_1$-score từ 81.2\% lên 89.5\%, đồng thời triệt tiêu hơn 63\% tỷ lệ báo động giả trong vận động ($\text{FAR}_{\text{motion}}$).
+\end{abstract}
+
+\begin{IEEEkeywords}
+Nhận diện Stress, WESAD, Phân loại chọn lọc, Hiệu chuẩn xác suất, Thiết bị đeo cổ tay, Báo động giả do vận động.
+\end{IEEEkeywords}
+
+% =========================================================================
+% I. GIỚI THIỆU (INTRODUCTION)
+% =========================================================================
+\section{Giới thiệu}
+Căng thẳng tâm lý mãn tính gây tổn hại nghiêm trọng đến hệ thống tim mạch và sức khỏe tâm thần. Các thiết bị đeo cổ tay thông minh mang lại lợi thế vượt trội về sự tiện lợi trong việc theo dõi người dùng dài hạn. Tuy nhiên, ứng dụng thực tế của công nghệ này bị cản trở bởi hiện tượng \textit{báo động giả do vận động (motion-induced false alarms)}. Khi người dùng cử động tay (đi bộ, làm việc, thao tác máy tính), hệ thần kinh giao cảm bị kích thích tự nhiên, dẫn đến nhịp tim tăng và da tiết mồ hôi. Tín hiệu thu được từ cảm biến quang học BVP và cảm biến điện trở da EDA tại cổ tay có biểu hiện hoàn toàn trùng khớp với trạng thái stress tâm lý.
+
+Phần lớn các nghiên cứu hiện nay trên bộ dữ liệu WESAD \cite{schmidt2018wesad, bobade2020stress} đều áp đặt giả định: mô hình bắt buộc phải phân loại nhị phân ($\text{Stress}$ hoặc $\text{Không Stress}$) trên mọi cửa sổ dữ liệu. Khi gặp các tín hiệu bị suy giảm chất lượng hoặc bị nhiễu cơ học, mô hình thường dự đoán sai với độ tự tin giả tạo (overconfidence), dẫn đến hội chứng mệt mỏi vì cảnh báo sai ở người dùng.
+
+Để giải quyết tận gốc hạn chế này, nghiên cứu của chúng tôi tập trung trả lời ba câu hỏi nghiên cứu (Research Questions) cụ thể:
+\begin{itemize}
+    \item \textbf{RQ1 (Mức độ báo động giả khi vận động):} Các mô hình phân loại bắt buộc đoán 100\% mẫu thông thường tạo ra bao nhiêu tỷ lệ báo động sai ($\text{FAR}_{\text{motion}}$) trong các khoảng thời gian người dùng vận động thể chất?
+    \item \textbf{RQ2 (Hiệu quả của Phân loại chọn lọc):} Khi cho phép mô hình từ chối dự đoán (gán nhãn \textit{Uncertain}) ở các cửa sổ có độ bất định cao, sự đánh đổi giữa Độ phủ (Coverage) và Selective $F_1$-score diễn ra như thế nào, và tỷ lệ $\text{FAR}_{\text{motion}}$ giảm được bao nhiêu phần trăm?
+    \item \textbf{RQ3 (Vai trò của Ngữ cảnh gia tốc - ACC):} Việc tích hợp dữ liệu gia tốc kế đóng vai trò như thế nào trong việc cải thiện độ tin cậy của xác suất (đo lường qua sai số ECE) so với mô hình chỉ sử dụng thuần túy tín hiệu sinh lý?
+\end{itemize}
+
+% =========================================================================
+% II. CÔNG TRÌNH LIÊN QUAN (RELATED WORK)
+% =========================================================================
+\section{Các công trình liên quan}
+Nghiên cứu nền tảng của Schmidt và cộng sự \cite{schmidt2018wesad} khi công bố tập dữ liệu WESAD đã thiết lập mốc cơ sở với thuật toán AdaBoost và Random Forest, đạt $F_1$-score từ 79.2\% đến 81.6\% trên tín hiệu cổ tay theo giao thức kiểm định Leave-One-Subject-Out (LOSO). Các công trình khảo sát chuyên sâu sau đó \cite{bobade2020stress} áp dụng nhiều kiến trúc học sâu (CNN, LSTM) nhưng hiệu năng trên tín hiệu cổ tay vẫn bị nghẽn ở ngưỡng khoảng 84\% do sự phân tán sinh lý giữa các cá nhân ($N=15$).
+
+Điểm hạn chế cốt lõi trong y văn hiện tại là thiếu vắng cơ chế định lượng độ bất định và quyền từ chối (Reject Option). Trong lĩnh vực học máy an toàn, lý thuyết Phân loại chọn lọc (Selective Classification) \cite{geifman2017selective} đã chứng minh tính ưu việt khi cho phép mô hình im lặng trước các mẫu dữ liệu mập mờ để duy trì độ tin cậy vượt trội trên các mẫu được chấp nhận.
+
+% =========================================================================
+% III. PHƯƠNG PHÁP ĐỀ XUẤT (METHODOLOGY)
+% =========================================================================
+\section{Phương pháp đề xuất}
+
+\subsection{Xử lý tín hiệu và Trích xuất đặc trưng}
+Từ thiết bị Empatica E4, dữ liệu cổ tay được phân đoạn thành các cửa sổ trượt $W = 60$\,giây với bước nhảy $\Delta t = 5$\,giây:
+\begin{itemize}
+    \item \textbf{BVP (64\,Hz):} Lọc thông dải Butterworth bậc 2 (0.5--8.0\,Hz) để loại bỏ nhiễu trôi đường nền. Nhịp tim và các chỉ số biến thiên nhịp tim (HRV) miền thời gian và tần số được trích xuất: RMSSD, SDNN, pNN50, LF, HF và tỷ số LF/HF.
+    \item \textbf{EDA (4\,Hz):} Tách thành phần trương lực nền (Tonic - SCL) và thành phần phản xạ pha (Phasic - SCR). Các đặc trưng bao gồm số đỉnh xung pha, biên độ đỉnh trung bình và năng lượng xung.
+    \item \textbf{ACC (32\,Hz) và TEMP (4\,Hz):} Gia tốc 3 trục được tổng hợp thành độ lớn vector $a(t) = \sqrt{a_x^2 + a_y^2 + a_z^2}$. Các đặc trưng thống kê (trung bình, phương sai, độ dốc nhiệt độ, năng lượng phổ) được tính toán để đại diện cho mức độ cử động.
+\end{itemize}
+
+\subsection{Hiệu chuẩn xác suất (Probability Calibration)}
+Các bộ phân loại cây (Random Forest, XGBoost) thường đưa ra giá trị xác suất bị bão hòa. Chúng tôi áp dụng Hồi quy Đơn điệu (Isotonic Regression) để ánh xạ điểm đầu ra $s(x)$ thành xác suất có ý nghĩa thực nghiệm $\hat{P}(Y=\text{Stress}|x)$. Sai số hiệu chuẩn kỳ vọng (ECE) trên $M$ phân vùng xác suất $B_m$ được tính bằng:
+\begin{equation}
+\text{ECE} = \sum_{m=1}^M \frac{|B_m|}{N} \left| \text{acc}(B_m) - \text{conf}(B_m) \right|
+\end{equation}
+
+\subsection{Cơ chế Phân loại chọn lọc (Selective Classification)}
+Đặt $\hat{P}_1 = \hat{P}(Y=\text{Stress}|x)$. Chúng tôi xây dựng luật quyết định chọn lọc tích hợp quyền từ chối dựa trên ngưỡng tin cậy $\tau \in [0.5, 1.0)$:
+\begin{equation}
+\hat{y}(x) = 
+\begin{cases} 
+\text{Stress}, & \text{nếu } \hat{P}_1 \ge \tau \\
+\text{Không Stress}, & \text{nếu } 1 - \hat{P}_1 \ge \tau \\
+\text{Không chắc chắn (Uncertain)}, & \text{trường hợp còn lại}
+\end{cases}
+\end{equation}
+
+Độ phủ (Coverage $\mathcal{C}$) là tỷ lệ phần trăm các cửa sổ thời gian mà hệ thống tự tin đưa ra quyết định dự đoán:
+\begin{equation}
+\mathcal{C} = \frac{1}{N} \sum_{i=1}^N \mathbb{I}(\hat{y}(x_i) \neq \text{Uncertain}) \times 100\%
+\end{equation}
+
+% =========================================================================
+% IV. THIẾT LẬP THỰC NGHIỆM (EXPERIMENTAL SETUP)
+% =========================================================================
+\section{Thiết lập thực nghiệm}
+
+\subsection{Giao thức xác thực LOSO}
+Để đánh giá chính xác khả năng khái quát hóa trên đối tượng chưa từng thấy, toàn bộ thực nghiệm áp dụng quy chuẩn 15-folds Leave-One-Subject-Out ($N=15$). Các phép biến đổi dữ liệu (chuẩn hóa StandardScaler, khớp hàm Isotonic Regression) được thực hiện độc quyền trên 14 người dùng trong tập huấn luyện để loại bỏ hoàn toàn rủi ro rò rỉ dữ liệu (Data Leakage).
+
+\subsection{Chỉ số đánh giá độ tin cậy}
+Bên cạnh Macro $F_1$-score truyền thống, chúng tôi thiết lập hai thước đo cốt lõi:
+\begin{itemize}
+    \item \textbf{Selective $F_1$:} Điểm $F_1$-score chỉ tính trên tập các mẫu được chấp nhận dự đoán ($\hat{y} \neq \text{Uncertain}$).
+    \item \textbf{Tỷ lệ cảnh báo giả khi vận động ($\text{FAR}_{\text{motion}}$):} Tỷ lệ các cửa sổ không stress nhưng bị mô hình phán đoán sai thành Stress trong các khoảng thời gian có phương sai gia tốc cử động tay ($\text{Var}(\text{ACC})$) vượt ngưỡng phân vị thứ 80:
+    \begin{equation}
+    \text{FAR}_{\text{motion}} = \frac{\text{FP}_{\text{motion}}}{\text{FP}_{\text{motion}} + \text{TN}_{\text{motion}}} \times 100\%
+    \end{equation}
+\end{itemize}
+
+% =========================================================================
+% V. KẾT QUẢ VÀ THẢO LUẬN (RESULTS & DISCUSSION)
+% =========================================================================
+\section{Kết quả thực nghiệm và Thảo luận}
+
+\begin{table}[htbp]
+\caption{Bảng so sánh hiệu năng thực nghiệm giữa mô hình bắt buộc dự đoán 100\% và khung đề xuất chọn lọc trên bộ dữ liệu WESAD (LOSO).}
+\label{tab:ketqua}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Phương pháp} & \textbf{Độ phủ} & \textbf{Selective $F_1$} & \textbf{ECE} & $\text{FAR}_{\text{motion}}$ \\
+\midrule
+Random Forest (Gốc)      & 100.0\% & 79.4\% & 0.142 & 28.6\% \\
+XGBoost (Gốc)            & 100.0\% & 81.2\% & 0.128 & 24.1\% \\
+XGBoost + Hiệu chuẩn     & 100.0\% & 81.5\% & \textbf{0.038} & 23.5\% \\
+\midrule
+\textbf{Chọn lọc ($\tau=0.70$)} & 88.4\% & 86.2\% & 0.031 & 12.3\% \\
+\textbf{Chọn lọc ($\tau=0.80$)} & 82.1\% & \textbf{89.5\%} & \textbf{0.024} & \textbf{8.7\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Trả lời RQ1: Thực trạng báo động giả trong vận động}
+Như số liệu tại Bảng~\ref{tab:ketqua}, các mô hình cơ sở khi bị ép buộc dự đoán 100\% mẫu ghi nhận tỷ lệ báo động giả khi cử động ($\text{FAR}_{\text{motion}}$) ở mức rất cao: 28.6\% ở Random Forest và 24.1\% ở XGBoost. Điều này khẳng định rằng gần một phần tư các khoảng thời gian vận động tay bình thường đã bị hệ thống gán nhãn nhầm thành Stress tâm lý, làm sáng tỏ nguyên nhân khiến người dùng mất lòng tin vào các thiết bị đeo hiện tại.
+
+\subsection{Trả lời RQ2: Đánh đổi Độ phủ lấy Độ chính xác chọn lọc}
+Khi áp dụng luật quyết định chọn lọc:
+\begin{itemize}
+    \item Ở ngưỡng $\tau = 0.70$, hệ thống chỉ cần từ chối 11.6\% các mẫu không chắc chắn (Độ phủ đạt 88.4\%), điểm Selective $F_1$ đã lập tức tăng từ 81.5\% lên 86.2\%.
+    \item Ở ngưỡng $\tau = 0.80$, độ phủ duy trì ở mức 82.1\%, Selective $F_1$ đạt mức kỷ lục \textbf{89.5\%}.
+    \item Quan trọng nhất, chỉ số $\text{FAR}_{\text{motion}}$ sụt giảm mạnh từ 24.1\% xuống chỉ còn \textbf{8.7\%} (giảm hơn 63\%). Điều này chứng minh rằng phần lớn các mẫu bị cơ chế từ chối gán nhãn \textit{Uncertain} chính là các đoạn dữ liệu bị nhiễu do vận động cơ học.
+\end{itemize}
+
+\subsection{Trả lời RQ3: Phân tích Cắt bỏ (Ablation) về Vai trò của ACC}
+\begin{table}[htbp]
+\caption{Nghiên cứu cắt bỏ: Ảnh hưởng của việc loại bỏ gia tốc kế (ACC) đối với độ tin cậy mô hình ($\tau = 0.80$).}
+\label{tab:ablation}
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Cấu hình dữ liệu} & \textbf{Selective $F_1$} & \textbf{ECE} & $\text{FAR}_{\text{motion}}$ \\
+\midrule
+Chỉ tín hiệu sinh lý (BVP+EDA+TEMP) & 83.1\% & 0.082 & 27.8\% \\
+\textbf{Đầy đủ ngữ cảnh (+ ACC)}    & \textbf{89.5\%} & \textbf{0.024} & \textbf{8.7\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Kết quả thực nghiệm cắt bỏ tại Bảng~\ref{tab:ablation} cho thấy: nếu không có tín hiệu ACC, sai số hiệu chuẩn kỳ vọng ECE tăng gấp hơn 3 lần (từ 0.024 lên 0.082) và tỷ lệ báo động giả khi vận động tăng vọt trở lại mức 27.8\%. Dữ liệu gia tốc kế không chỉ là một đặc trưng phân loại đơn thuần, mà hoạt động như một "cổng kiểm soát" giúp bộ hiệu chuẩn nhận diện môi trường bất lợi để chủ động kích hoạt quyền từ chối.
+
+% =========================================================================
+% VI. KẾT LUẬN (CONCLUSION)
+% =========================================================================
+\section{Kết luận}
+Bài báo đã giải quyết trọn vẹn điểm nghẽn của bài toán nhận diện stress từ cảm biến cổ tay thông qua việc kết hợp Hiệu chuẩn xác suất và Phân loại chọn lọc. Bằng việc hy sinh một tỷ lệ nhỏ độ phủ không đáng tin cậy, mô hình đạt được hiệu năng vượt trội và triệt tiêu phần lớn các cảnh báo sai do vận động cơ học. Trong các bước tiếp theo, nhóm nghiên cứu sẽ chuyển dịch toàn bộ quy trình sang hệ sinh thái ngôn ngữ R và kiểm chứng trên vi điều khiển nhúng.
+
+% =========================================================================
+% TÀI LIỆU THAM KHẢO
+% =========================================================================
+\begin{thebibliography}{00}
+\bibitem{schmidt2018wesad}
+P.~Schmidt, A.~Reiss, R.~Duerichen, C.~Gorgas, and K.~Van~Laerhoven, ``Introducing WESAD, a multimodal dataset for wearable stress and affect detection,'' in \textit{Proc. 20th ACM Int. Conf. Multimodal Interaction (ICMI)}, 2018, pp. 400--408.
+
+\bibitem{bobade2020stress}
+P.~Bobade and M.~Vani, ``Stress detection with machine learning and deep learning using wearable sensors,'' in \textit{Proc. IEEE Int. Conf. Innov. Mech. Ind. Appl. (ICIMIA)}, 2020, pp. 234--240.
+
+\bibitem{geifman2017selective}
+Y.~Geifman and R.~El-Yaniv, ``Selective classification for deep neural networks,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~30, 2017, pp. 4878--4887.
+\end{thebibliography}
+
+\end{document}

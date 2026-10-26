@@ -1,0 +1,39 @@
+[Dữ liệu WESAD (Kaggle)]
+         │
+         ▼
+[1. Tiền xử lý & Cửa sổ hóa (Windowing: 60s)]
+  ├── BVP (64Hz)  ──> Lọc Bandpass (0.5 - 8Hz)
+  ├── EDA (4Hz)   ──> Tách Tonic & Phasic (cvxEDA / NeuroKit2)
+  ├── ACC (32Hz)  ──> Lọc Lowpass, tính độ lớn Vector Magnitude
+  └── TEMP (4Hz)  ──> Làm mượt tín hiệu
+         │
+         ▼
+[2. Trích xuất đặc trưng (Feature Extraction)]
+  ├── HRV (BVP): RMSSD, SDNN, pNN50, LF/HF, SampEn
+  ├── EDA: Số đỉnh xung (SCR peaks), biên độ đỉnh, năng lượng SCL
+  ├── ACC: Mean, Std, Energy, Zero-crossing rate
+  └── TEMP: Mean, Std, Độ dốc (Slope)
+         │
+         ▼
+[3. Đánh giá kiểm thử chéo LOSO (15 Folds)]
+  ├── 14 Đối tượng: Huấn luyện (Fit Scaler, Fit Model, Fit Calibrator)
+  └── 1 Đối tượng:  Kiểm thử độc lập (Test)
+         │
+         ▼
+[4. Mô hình hóa & Lõi tin cậy (Trustworthy Engine)]
+  ├── Bước 4.1: Bộ phân loại cơ sở (Random Forest / XGBoost)
+  ├── Bước 4.2: Hiệu chuẩn xác suất (Probability Calibration: Isotonic / Platt)
+  └── Bước 4.3: Cơ chế từ chối (Abstention / Selective Prediction)
+                    │
+           ┌────────┴────────┐
+     Độ tự tin cao     Độ bất định cao (Entropy cao / Cử động mạnh)
+           │                 │
+    [Stress / No Stress]  [UNCERTAIN (Từ chối dự đoán)]
+         │
+         ▼
+[5. Đánh giá & Phân tích chuyên sâu]
+  ├── Trade-off: Đồ thị Coverage (%) vs Selective F1-score
+  ├── Độ tin cậy: Giảm chỉ số sai số chuẩn hóa (ECE)
+  ├── FAR-Motion: Đo tỷ lệ báo động giả khi ACC dao động lớn
+  ├── Ablation Study: Có ACC vs Không có ACC
+  └── XAI (SHAP): Giải thích tại sao mô hình tự tin hoặc do dự
