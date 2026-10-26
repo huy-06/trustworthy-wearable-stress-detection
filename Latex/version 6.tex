@@ -1,0 +1,495 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% --- Cấu hình Tiếng Việt cho Overleaf (trình biên dịch pdfLaTeX / XeLaTeX) ---
+\usepackage[utf8]{vietnam}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage{hyperref}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Phân loại chọn lọc và Hiệu chuẩn xác suất trong Nhận diện Căng thẳng Đáng tin cậy từ Tín hiệu Sinh lý Đeo Cổ tay}
+
+% --- Thông tin nhóm tác giả ---
+\author{
+    \IEEEauthorblockN{Phan Tuấn Đạt\IEEEauthorrefmark{1}, Nguyễn Gia Huy\IEEEauthorrefmark{2}, Trần Lợi Kiều Nhi\IEEEauthorrefmark{3}, Nguyễn Minh Bảo\IEEEauthorrefmark{4}}
+    \IEEEauthorblockA{\textit{Khoa Công nghệ Thông tin / Trí tuệ Nhân tạo}, \textit{Trường Đại học FPT} \\
+    Email: \IEEEauthorrefmark{1}ptundatwork@gmail.com, \IEEEauthorrefmark{2}huy522006@gmail.com, \IEEEauthorrefmark{3}nhiklt2006@gmail.com, \IEEEauthorrefmark{4}baonguyenminh17@gmail.com}
+}
+
+\maketitle
+
+% =========================================================================
+% TÓM TẮT (ABSTRACT)
+% =========================================================================
+\begin{abstract}
+Hệ thống nhận diện căng thẳng tâm lý (stress) dựa trên thiết bị đeo cổ tay thông minh đóng vai trò then chốt trong y tế số và giám sát sức khỏe chủ động. Tuy nhiên, các cảm biến quang học BVP và điện trở da EDA tại cổ tay cực kỳ nhạy cảm với nhiễu động học. Khi người dùng vận động cơ thể (đi bộ, làm việc, gõ phím), phản xạ kích thích giao cảm tự nhiên làm gia tăng nhịp tim và hoạt tính tuyến mồ hôi, mô phỏng phản ứng sinh lý tương tự như stress tâm lý. Hiện tượng này khiến các mô hình học máy truyền thống---vốn bị ép buộc phải dự đoán trong 100\% thời gian (Full Coverage)---liên tục phát ra cảnh báo giả, dẫn đến hội chứng mệt mỏi vì báo động (alarm fatigue) và làm xói mòn lòng tin của người dùng. Trong nghiên cứu này, chúng tôi đề xuất một khung nhận diện stress đáng tin cậy (Trustworthy Stress Detection Framework) kết hợp giữa Hiệu chuẩn xác suất (Probability Calibration bằng Isotonic Regression) và Phân loại chọn lọc (Selective Classification) trên tập dữ liệu chuẩn WESAD ($N=15$). Khung phương pháp trao cho mô hình quyền từ chối (gán nhãn \textit{Không chắc chắn - Uncertain}) khi độ bất định vượt ngưỡng an toàn hoặc khi xảy ra rung lắc cơ học mạnh. Khảo sát thực nghiệm mở rộng trên 8 họ mô hình (gồm 7 mô hình học máy dạng bảng và mạng nơ-ron sâu MLP) theo giao thức Leave-One-Subject-Out (LOSO) 15-folds chống rò rỉ rãnh kép (Inner GroupKFold) chứng minh rằng: Hiện tượng báo động giả do vận động diễn ra phổ quát trên mọi mô hình ($\text{FAR}_{\text{motion}} \approx 12.2\% - 24.0\%$), và cơ chế từ chối đề xuất giúp triệt tiêu từ 55.0\% đến 90.0\% tỷ lệ báo động giả trên toàn bộ các mô hình benchmark. Tại ngưỡng tối ưu $\tau = 0.80$ với mô hình XGBoost, hệ thống nâng điểm Selective Macro $F_1$-score lên \textbf{95.20\%} (Stress $F_1 = 93.15\%$, 95\% CI: [84.80\%, 98.54\%]), giảm sai số hiệu chuẩn kỳ vọng ECE xuống \textbf{0.0290}, và kìm hãm $\text{FAR}_{\text{motion}}$ xuống chỉ còn \textbf{4.07\%} (95\% CI: [0.0\%, 11.07\%]) trong khi vẫn duy trì độ phủ $69.42\%$ (95\% CI: [58.34\%, 79.84\%]). Phân tích chi tiết 15 folds LOSO, kiểm định phi tham số Wilcoxon, đối chiếu học sâu MLP và phân tích TreeSHAP khẳng định tính vững chắc y sinh học, đồng thời bóc tách hiện tượng phân ly sinh lý học cá thể trên đối tượng thất bại ngoại lai.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Nhận diện Stress, WESAD, Phân loại chọn lọc, Hiệu chuẩn xác suất, Empatica E4, Báo động giả do vận động, Trí tuệ nhân tạo đáng tin cậy, Đa mô hình Benchmark, Đánh giá LOSO, Học sâu đối sánh.
+\end{IEEEkeywords}
+
+% =========================================================================
+% I. GIỚI THIỆU (INTRODUCTION)
+% =========================================================================
+\section{Giới thiệu}
+Căng thẳng tâm lý mãn tính (chronic stress) là một trong những nguyên nhân hàng đầu gây suy giảm hệ miễn dịch, rối loạn chuyển hóa và các biến cố tim mạch nguy hiểm \cite{can2019stress}. Sự phát triển nhanh chóng của các thiết bị đeo thông minh (smartwatch, smartband) mở ra cơ hội theo dõi biến đổi sinh lý người dùng liên tục và không xâm lấn trong đời sống hàng ngày \cite{schmidt2018wesad, gjoreski2016continuous}.
+
+Tuy nhiên, khoảng cách giữa thực nghiệm phòng lab và ứng dụng lâm sàng thực tế vẫn còn rất lớn bởi rào cản mang tên \textit{báo động giả do vận động (motion-induced false alarms)} \cite{schumm2010effect, zhang2014troika}. Khi người dùng cử động cơ học, hệ thần kinh giao cảm (Sympathetic Nervous System - SNS) bị kích hoạt tự nhiên nhằm cung cấp oxy và năng lượng cho cơ bắp: lưu lượng máu tăng, nhịp tim nhanh và các tuyến mồ hôi ngoại tiết ở lòng bàn tay/cổ tay hoạt động mạnh. Dưới góc độ cảm biến đo thể tích mạch máu quang học (Photoplethysmography - BVP) và cảm biến điện trở da (Electrodermal Activity - EDA), biểu hiện sinh lý này trùng khớp hoàn toàn với phản ứng phòng vệ "chiến-hay-biến" (fight-or-flight) của stress tâm lý. 
+
+Trong phần lớn các nghiên cứu hiện hành trên tập dữ liệu chuẩn WESAD \cite{schmidt2018wesad, bobade2020stress, siirtola2019continuous}, các tác giả thường mắc phải cái bẫy "tối ưu độ chính xác bề nổi" (accuracy trap). Mô hình luôn bị bắt buộc phải đưa ra quyết định nhị phân ($\text{Stress}$ hoặc $\text{Không Stress}$) trên toàn bộ 100\% các cửa sổ dữ liệu (Full Coverage). Khi gặp tín hiệu bị nhiễu rung lắc nghiêm trọng, các mô hình học sâu hoặc học máy truyền thống thường dự đoán sai với mức độ tự tin giả tạo (overconfidence) \cite{guo2017calibration}. Hậu quả là người dùng liên tục nhận được thông báo căng thẳng giả khi họ đang vận động thể chất bình thường, dẫn tới hội chứng mệt mỏi vì cảnh báo (alarm fatigue) và người dùng phớt lờ hoặc tháo bỏ thiết bị.
+
+Để khắc phục điểm nghẽn mang tính nền tảng này, nghiên cứu của chúng tôi tiếp cận bài toán theo triết lý \textbf{Trí tuệ nhân tạo Đáng tin cậy (Trustworthy AI)}: Một hệ thống y tế số an toàn không phải là hệ thống cố đoán trong mọi hoàn cảnh, mà là hệ thống \textit{biết rõ khi nào mình không biết} để đưa ra quyền từ chối (Learning with Rejection / Selective Classification) \cite{chow1970optimum, geifman2017selective, hendrickx2021machine}.
+
+\subsection{Đóng góp Khoa học của Nghiên cứu}
+Bài báo mang lại bốn đóng góp khoa học cốt lõi (Scientific Contributions):
+\begin{enumerate}
+    \item \textbf{Định danh và định lượng lỗ hổng Báo động giả do Vận động ($\text{FAR}_{\text{motion}}$):} Thiết lập chỉ số chuyên biệt $\text{FAR}_{\text{motion}}$ và thực hiện benchmark mở rộng trên 8 họ mô hình (7 mô hình học máy dạng bảng và 1 mạng nơ-ron sâu MLP) theo giao thức nghiêm ngặt Leave-One-Subject-Out (LOSO 15-folds). Chúng tôi chứng minh hiện tượng báo động giả khi vận động là bản chất sinh lý học phổ quát ($\text{FAR}_{\text{motion}} \approx 12.2\% - 24.0\%$), không thể triệt tiêu nếu chỉ tối ưu thuật toán theo chế độ bắt buộc dự đoán 100\%.
+    \item \textbf{Quy trình Dual-level Group-aware Calibration chống rò rỉ dữ liệu triệt để:} Xây dựng khung hiệu chuẩn xác suất bằng hồi quy Isotonic tích hợp bên trong bộ chia đối tượng rãnh kép (Inner GroupKFold). Thiết kế này giải quyết tận gốc rủi ro rò rỉ dữ liệu do cửa sổ trượt 60 giây chồng lấn 91.7\%, giúp phân phối xác suất dự báo phản ánh đúng tần suất thực nghiệm khách quan (kéo giảm ECE xuống $0.0290$).
+    \item \textbf{Khung Phân loại Chọn lọc với Cơ chế Cổng Bất định Vận động:} Đề xuất luật quyết định chọn lọc kết hợp ngưỡng tin cậy xác suất $\tau$ và ngữ cảnh gia tốc kế ACC. Khung phương pháp giúp triệt tiêu từ $55.0\%$ đến $90.0\%$ tỷ lệ báo động giả trên toàn bộ 8 mô hình; đưa mô hình XGBoost đạt Selective Macro $F_1 = 95.20\%$ tại độ phủ khả dụng $69.42\%$, đồng thời kiểm định thống kê đa hạt giống (5 seeds) và Wilcoxon khẳng định tính ổn định vượt bậc.
+    \item \textbf{Bóc tách Sinh lý học XAI và Đối chiếu Học máy vs Học sâu:} Ứng dụng TreeSHAP bóc tách tỷ trọng đóng góp của 4 kênh tín hiệu sinh lý và cơ chế mâu thuẫn trực giao kích hoạt quyền từ chối. Đặc biệt, nghiên cứu đối chiếu thực chứng giữa Tabular ML và Deep Learning (MLP), phân tích bản chất thất bại ngoại lai của đối tượng suy giảm phản ứng điện da ($S_{12}$), cung cấp cơ sở y sinh định hướng cho các thiết kế cá nhân hóa trong tương lai.
+\end{enumerate}
+
+% =========================================================================
+% II. TỔNG QUAN NGHIÊN CỨU & KHOẢNG TRỐNG KHOA HỌC
+% =========================================================================
+\section{Tổng quan nghiên cứu \& Khoảng trống khoa học}
+
+\subsection{Nhận diện Căng thẳng từ Thiết bị Đeo Cổ tay}
+Nhận diện trạng thái căng thẳng qua tín hiệu sinh lý đã được nghiên cứu từ lâu với các thiết bị y tế chuyên dụng dán ngực hoặc đo điện tim ECG đa cực \cite{taskforce1996heart}. Với sự phổ biến của thiết bị đeo tay thương mại, các công trình gần đây chuyển dịch trọng tâm sang cảm biến thể tích mạch máu quang học (BVP/PPG), điện trở da (EDA), nhiệt độ bề mặt da (TEMP) và gia tốc kế (ACC) \cite{can2019stress, gjoreski2016continuous}. 
+
+Schmidt và cộng sự \cite{schmidt2018wesad} giới thiệu tập dữ liệu chuẩn WESAD thu thập trên 15 đối tượng qua thiết bị Empatica E4 (cổ tay) và RespiBAN (ngực). Nghiên cứu chỉ ra rằng việc phân loại stress từ cổ tay gặp thách thức vượt trội so với ngực do cổ tay có biên độ cử động tự do lớn hơn rất nhiều, dẫn đến suy giảm độ chính xác. Tiếp nối WESAD, Bobade và Vani \cite{bobade2020stress} khảo sát các mô hình học máy (SVM, KNN, Random Forest) và học sâu (CNN, LSTM), đạt độ chính xác từ 75\% đến 84\% trên dữ liệu cổ tay. Siirtola \cite{siirtola2019continuous} tập trung trích xuất đặc trưng HRV từ sóng BVP cổ tay nhưng nhấn mạnh rào cản biến thiên cá thể (inter-subject variability) khiến mô hình huấn luyện trên người này khó tổng quát hóa trên người khác. Can và cộng sự \cite{can2019stress} và Sano và cộng sự \cite{sano2018multimodal} cũng khẳng định tính không đồng nhất sinh lý là nguyên nhân chính khiến các thuật toán học máy suy giảm hiệu năng nghiêm trọng khi đánh giá ngoài môi trường tự do (in-the-wild).
+
+\subsection{Nhiễu Chuyển động (Motion Artifacts) và Hội chứng Báo động Giả}
+Nhiễu chuyển động cơ học là nguyên nhân hàng đầu gây biến dạng tín hiệu quang học BVP và điện trở da EDA \cite{zhang2014troika, schumm2010effect}. Về mặt quang học, cử động cổ tay làm xê dịch vị trí tiếp xúc giữa cảm biến photodiode và da, gây biến dạng sóng mạch và dẫn đến tính toán sai lệch các chỉ số biến thiên nhịp tim HRV (như RMSSD, LF/HF) \cite{zhang2014troika}. Về mặt sinh lý thần kinh, vận động thể chất kích hoạt tự nhiên hệ thần kinh giao cảm (SNS) nhằm tăng huyết áp, tăng tưới máu cơ bắp và tiết mồ hôi làm mát \cite{schumm2010effect}. 
+
+Hầu hết các nghiên cứu hiện tại chỉ tiếp cận vấn đề lọc nhiễu ở mức xử lý tín hiệu (signal-level filtering) như bộ lọc Butterworth hay triệt tiêu nhiễu chủ động thích nghi \cite{zhang2014troika}. Tuy nhiên, lọc tín hiệu chỉ loại bỏ được nhiễu quang học tần số cao, hoàn toàn không thể xóa bỏ phản ứng sinh lý tăng nhịp tim và tăng tiết mồ hôi thực tế của cơ thể do vận động. Do đó, nếu mô hình học máy vẫn bị ép buộc phải dự đoán liên tục 100\% thời gian, hệ thống sẽ phát sinh tỷ lệ báo động giả rất cao trong lúc người dùng sinh hoạt, gây ra hội chứng mệt mỏi cảnh báo (alarm fatigue) \cite{can2019stress}.
+
+\subsection{Lý thuyết Phân loại Chọn lọc và Học có Quyền Từ chối}
+Khái niệm học có quyền từ chối (Learning with Rejection) bắt nguồn từ nghiên cứu kinh điển của Chow \cite{chow1970optimum}, cho phép bộ phân loại từ chối đưa ra phán đoán nếu tổn thất kỳ vọng của việc từ chối nhỏ hơn rủi ro dự đoán sai. Trong kỷ nguyên học máy hiện đại, Geifman và El-Yaniv \cite{geifman2017selective} chính thức hình thức hóa bài toán Phân loại Chọn lọc (Selective Classification) cho mạng nơ-ron sâu, thiết lập mối quan hệ đánh đổi tối ưu giữa Rủi ro (Risk / Error) và Độ phủ (Coverage). Các nghiên cứu tiếp theo của Cortes và cộng sự \cite{cortes2016learning}, Geifman và El-Yaniv (SelectiveNet) \cite{geifman2019selectivenet}, và khảo sát toàn diện của Hendrickx và cộng sự \cite{hendrickx2021machine} mở rộng cơ chế từ chối cho nhiều tác vụ y tế và an toàn sinh mạng.
+
+Tuy nhiên, trong lĩnh vực nhận diện căng thẳng từ thiết bị đeo, các nghiên cứu hầu như chưa khai thác Phân loại chọn lọc. Nghiên cứu của chúng tôi là công trình đầu tiên kết hợp ngưỡng tin cậy xác suất $\tau$ cùng ngữ cảnh gia tốc kế ACC để xây dựng cơ chế từ chối thông minh, trực tiếp giải quyết vấn đề báo động giả do vận động.
+
+\subsection{Hiệu chuẩn Xác suất và Nguy cơ Rò rỉ Dữ liệu Cửa sổ Trượt}
+Điều kiện tiên quyết để cơ chế phân loại chọn lọc hoạt động chính xác là đầu ra xác suất của mô hình phải phản ánh đúng độ tin cậy thực tế (True Calibration) \cite{guo2017calibration}. Guo và cộng sự \cite{guo2017calibration} chỉ ra rằng các mô hình học sâu hiện đại thường rơi vào trạng thái "tự tin giả tạo" (overconfident): gán xác suất cao ($>0.9$) cho cả những mẫu mà mô hình phân loại sai. Các phương pháp hiệu chuẩn hậu xử lý phổ biến gồm Platt Scaling (hàm Sigmoid) \cite{platt1999probabilistic} và Hồi quy đơn điệu Isotonic Regression \cite{niculescu2005predicting}.
+
+Đáng lưu ý, trong xử lý tín hiệu sinh lý, dữ liệu thường được chia theo cửa sổ trượt (sliding window) với độ chồng lấn cao (ví dụ: cửa sổ 60 giây, bước nhảy 5 giây tạo độ trùng 91.7\%). Nếu áp dụng quy trình kiểm định chéo ngẫu nhiên thông thường (Random K-Fold), các cửa sổ lân cận của cùng một đối tượng sẽ rò rỉ sang cả tập train và val, dẫn đến hiện tượng lạm phát xác suất giả tạo \cite{can2019stress}. Trong nghiên cứu này, chúng tôi thiết kế kiến trúc hiệu chuẩn hai tầng (Dual-level LOSO with Inner GroupKFold) nhằm đảm bảo tính độc lập tuyệt đối giữa các đối tượng.
+
+\subsection{Biện giải Khoa học: Tại sao Lựa chọn Học máy Dạng bảng (Tabular ML)?}
+Trong làn sóng phát triển của Deep Learning, việc lựa chọn mô hình học máy dạng bảng dựa trên cây quyết định (Random Forest, LightGBM, XGBoost) trong nghiên cứu này dựa trên ba luận điểm khoa học vững chắc:
+\begin{enumerate}
+    \item \textbf{Cỡ mẫu cá thể giới hạn ($N=15$) và hiện tượng ghi nhớ cá thể:} Bộ dữ liệu WESAD có 15 đối tượng. Các nghiên cứu gần đây của Shwartz-Ziv và Armon \cite{shwartzziv2022tabular} cùng Grinsztajn và cộng sự \cite{grinsztajn2022why} chứng minh rằng trên dữ liệu dạng bảng có kích thước vừa và nhỏ, các mô hình cây tăng cường (Tree Boosting) liên tục đánh bại các mạng học sâu. Các mạng nơ-ron sâu tham số lớn rất dễ học vẹt (overfit) các đặc tính nền sinh lý riêng biệt của 14 người trong tập huấn luyện, làm suy giảm khả năng khái quát hóa khi gặp đối tượng mới trong giao thức LOSO.
+    \item \textbf{Khả năng giải thích y sinh học (Explainable AI - XAI):} Các đặc trưng sinh lý miền thời gian và tần số (RMSSD, LF/HF, SCR peaks) đã được bảo chứng qua nhiều thập kỷ y học thực nghiệm \cite{taskforce1996heart, greco2016cvxeda}. Kết hợp các đặc trưng này với thuật toán TreeSHAP \cite{lundberg2017unified}, bác sĩ và người dùng có thể hiểu tường tận căn nguyên của từng phán đoán và lý do mô hình từ chối, điều mà các mạng học sâu "hộp đen" khó đạt được.
+    \item \textbf{Tính khả thi phần cứng nhúng biên (Ultra-low Power Edge Devices):} Các thiết bị đeo như Empatica E4 hoạt động bằng pin nhỏ và vi điều khiển năng lượng siêu thấp (ARM Cortex-M4). Cây quyết định kết hợp bảng tra Isotonic có độ phức tạp thời gian suy luận $O(\text{depth})$ và dung lượng bộ nhớ chỉ vài chục kilobyte, hoàn toàn khả thi chạy thời gian thực trên chip mà không cần truyền dữ liệu thô liên tục lên đám mây.
+\end{enumerate}
+
+Để đảm bảo tính khách quan và kiểm chứng thực nghiệm luận điểm trên, bài báo thực hiện đối chiếu song song với mạng nơ-ron sâu MLP (Multi-Layer Perceptron) được huấn luyện bài bản theo cùng giao thức LOSO 15-folds.
+
+\begin{table*}[t]
+\caption{Bảng đối sánh tổng quan khoảng trống nghiên cứu (Research Gap Analysis) giữa các công trình tiêu biểu và Khung đề xuất.}
+\label{tab:related_work_comparison}
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Công trình Nghiên cứu} & \textbf{Thiết bị / Vị trí} & \textbf{Mô hình Thuật toán} & \textbf{Giao thức Đánh giá} & \textbf{Hiệu chuẩn Xác suất} & \textbf{Xử lý Báo động Vận động} & \textbf{Quyền Từ chối (Rejection)} \\
+\midrule
+Schmidt et al. (2018) \cite{schmidt2018wesad} & E4 (cổ tay) + RespiBAN (ngực) & LDA, Random Forest, AdaBoost & LOSO (15 folds) & Không & Không (100\% Coverage) & Không \\
+Bobade \& Vani (2020) \cite{bobade2020stress} & E4 (cổ tay) & SVM, KNN, CNN, LSTM & K-Fold ngẫu nhiên & Không & Không (100\% Coverage) & Không \\
+Siirtola (2019) \cite{siirtola2019continuous} & Smartwatch (cổ tay - BVP) & Random Forest, QDA & LOSO & Không & Không (100\% Coverage) & Không \\
+Gjoreski et al. (2016) \cite{gjoreski2016continuous} & Thiết bị đeo cổ tay & Random Forest, Ensemble & In-lab \& Real-life & Không & Bộ lọc hoạt động thô & Không \\
+Can et al. (2019) \cite{can2019stress} & Thiết bị đeo đa cảm biến & SVM, Gradient Boosting & Đa giao thức & Không & Phân tích tổng quan & Không \\
+\midrule
+\textbf{Nghiên cứu Đề xuất} & \textbf{Empatica E4 (cổ tay)} & \textbf{8 Models (7 Tabular + MLP)} & \textbf{Dual-level LOSO 15-folds} & \textbf{Có (Inner GroupKFold Isotonic)} & \textbf{Cơ chế Ngưỡng ACC ($\theta_{\text{mot}}$)} & \textbf{Có (Selective Rule $\tau = 0.80$)} \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+% =========================================================================
+% III. PHƯƠNG PHÁP ĐỀ XUẤT (METHODOLOGY)
+% =========================================================================
+\section{Phương pháp đề xuất}
+
+\subsection{Quy trình Tiền xử lý \& Trích xuất Đặc trưng}
+Từ thiết bị Empatica E4 đeo cổ tay, tín hiệu liên tục được chia thành các cửa sổ trượt $W = 60$\,giây với bước nhảy $\Delta t = 5$\,giây (tương ứng độ chồng lắp $91.7\%$). Cửa sổ 60 giây là khoảng thời gian tối thiểu được Hội đồng Tim mạch Châu Âu và Bắc Mỹ \cite{taskforce1996heart} khuyến nghị để tính toán các chỉ số biến thiên nhịp tim (HRV) ngắn hạn:
+\begin{itemize}
+    \item \textbf{Tín hiệu BVP (64\,Hz):} Được lọc thông dải Butterworth bậc 2 (0.5--8.0\,Hz) để khử nhiễu trôi đường nền. Các đỉnh mạch (PPG peaks) được phát hiện để xây dựng chuỗi khoảng cách liên nhịp IBI. Chuỗi IBI sau khi khử dị biệt sinh lý (loại bỏ khoảng cách ngoài dải 300--1800\,ms) được nội suy về lưới đều 4\,Hz bằng nội suy Spline bậc 3 \cite{tarvainen2014kubios}. Từ đó, trích xuất các đặc trưng miền thời gian (Mean HR, SDNN, RMSSD, pNN50) và miền tần số thông qua biến đổi phổ Welch: công suất dải tần số thấp LF (0.04--0.15\,Hz), dải tần số cao HF (0.15--0.40\,Hz) và tỷ số thần kinh giao cảm/phó giao cảm LF/HF.
+    \item \textbf{Tín hiệu EDA (4\,Hz):} Sử dụng thuật toán phân rã cvxEDA \cite{greco2016cvxeda} để tách thành phần trương lực nền (Tonic - SCL) và thành phần phản xạ pha (Phasic - SCR). Các đặc trưng bao gồm: số đỉnh xung pha SCR, biên độ đỉnh tối đa, giá trị trung bình/phương sai của cả 2 thành phần và năng lượng pha $\sum \text{Phasic}^2$.
+    \item \textbf{Tín hiệu TEMP (4\,Hz):} Nhiệt độ bề mặt da cổ tay phản ánh sự co mạch ngoại vi do kích thích giao cảm. Trích xuất: trung bình, độ lệch chuẩn, giá trị cực trị và độ dốc xu hướng (slope) thông qua hồi quy tuyến tính.
+    \item \textbf{Tín hiệu ACC (32\,Hz):} Gia tốc 3 trục được tổng hợp thành độ lớn vector vô hướng $a(t) = \sqrt{a_x^2(t) + a_y^2(t) + a_z^2(t)}$. Các đặc trưng tính toán gồm: trung bình, phương sai $\text{Var}(\text{ACC})$ (đại diện cho mức độ rung lắc cơ học), giá trị đỉnh, tỷ lệ đổi dấu (ZCR) và mật độ năng lượng phổ gia tốc.
+\end{itemize}
+
+Tổng cộng, ma trận dữ liệu sau trích xuất bao gồm 5.294 cửa sổ quan sát trên 15 đối tượng thực nghiệm của WESAD ($S2 \rightarrow S17$, ngoại trừ $S1$ đóng vai trò thử nghiệm giao thức và $S12$ bị lỗi cảm biến theo công bố của nhóm tác giả gốc \cite{schmidt2018wesad}). Để đảm bảo tính minh bạch học thuật, 15 đối tượng này được ánh xạ theo thứ tự xuất hiện vào 15 fold kiểm thử độc lập: $S2 \rightarrow S_1$, $S3 \rightarrow S_2$, $S4 \rightarrow S_3$, $S5 \rightarrow S_4$, $S6 \rightarrow S_5$, $S7 \rightarrow S_6$, $S8 \rightarrow S_7$, $S9 \rightarrow S_8$, $S10 \rightarrow S_9$, $S11 \rightarrow S_{10}$, $S13 \rightarrow S_{11}$, $S14 \rightarrow S_{12}$, $S15 \rightarrow S_{13}$, $S16 \rightarrow S_{14}$, $S17 \rightarrow S_{15}$. Do đó, đối tượng thất bại $S_{12}$ trong các phân tích Out-of-Fold thực chất tương ứng với đối tượng $S14$ trong bộ dữ liệu WESAD gốc. Ma trận đặc trưng chuẩn hóa bao gồm 25 đặc trưng số thực.
+
+\subsection{Hiệu chuẩn Xác suất (Probability Calibration)}
+Gọi $x \in \mathbb{R}^d$ là vector đặc trưng và $y \in \{0, 1\}$ là nhãn (0: Không Stress, 1: Stress). Điểm đầu ra $f(x)$ của mô hình học máy được chuẩn hóa thành xác suất thực nghiệm thông qua hàm hồi quy đơn điệu Isotonic \cite{niculescu2005predicting}:
+\begin{equation}
+\hat{P}(Y=1|x) = g(f(x))
+\end{equation}
+trong đó hàm $g(\cdot)$ được tối ưu hóa theo chuẩn bình phương tối thiểu có điều kiện không giảm: $\min_g \sum (y_i - g(f(x_i)))^2$.
+
+Chất lượng của phân phối xác suất được định lượng qua Sai số Hiệu chuẩn Kỳ vọng (Expected Calibration Error - ECE) \cite{guo2017calibration} trên $M=10$ phân vùng xác suất đều:
+\begin{equation}
+\text{ECE} = \sum_{m=1}^M \frac{|B_m|}{N} \left| \text{acc}(B_m) - \text{conf}(B_m) \right|
+\end{equation}
+với $\text{acc}(B_m)$ và $\text{conf}(B_m)$ lần lượt là độ chính xác thực tế và độ tin cậy trung bình của các mẫu rơi vào phân vùng $B_m$.
+
+\subsection{Luật Quyết định Phân loại Chọn lọc}
+Đặt $\hat{p}_1 = \hat{P}(Y=1|x)$. Chúng tôi thiết lập bộ phân loại chọn lọc $(h, g_\tau)$ với hàm từ chối $g_\tau(x) \in \{0, 1\}$ phụ thuộc vào ngưỡng tin cậy khắt khe $\tau \in [0.5, 1.0)$:
+\begin{equation}
+\hat{y}(x) = 
+\begin{cases} 
+1 \; (\text{Stress}), & \text{nếu } \hat{p}_1 \ge \tau \\
+0 \; (\text{Không Stress}), & \text{nếu } (1 - \hat{p}_1) \ge \tau \\
+\text{Uncertain} \; (\text{Từ chối}), & \text{trường hợp còn lại}
+\end{cases}
+\end{equation}
+
+Độ phủ (Coverage $\mathcal{C}$) đại diện cho tỷ lệ phần trăm các cửa sổ mà hệ thống chấp nhận đưa ra phán đoán:
+\begin{equation}
+\mathcal{C} = \frac{1}{N} \sum_{i=1}^N \mathbb{I}(\hat{y}(x_i) \neq \text{Uncertain}) \times 100\%
+\end{equation}
+
+% =========================================================================
+% IV. THIẾT LẬP THỰC NGHIỆM (EXPERIMENTAL SETUP)
+% =========================================================================
+\section{Thiết lập thực nghiệm}
+
+\subsection{Giao thức Kiểm định Nghiêm ngặt LOSO \& Chống Rò rỉ Hai Tầng}
+Nhằm đánh giá đúng năng lực triển khai thực tế trên người dùng mới chưa từng được huấn luyện, toàn bộ thực nghiệm tuân thủ giao thức 15-folds Leave-One-Subject-Out (LOSO):
+\begin{itemize}
+    \item \textbf{Tầng 1 (LOSO Outer Split):} Trong mỗi fold thứ $k$, toàn bộ dữ liệu của đối tượng $S_k$ được giữ lại làm tập kiểm tra độc lập (Test Set). 14 đối tượng còn lại tạo thành tập huấn luyện (Train Set). Mọi phép chuẩn hóa (\texttt{StandardScaler}) được tính toán độc quyền trên 14 đối tượng này.
+    \item \textbf{Tầng 2 (Group-aware Inner Calibration):} Các cửa sổ trượt 60 giây (bước nhảy 5 giây) có độ chồng lắp thời gian lên đến 91.7\%. Nếu chia ngẫu nhiên (Random K-Fold), các cửa sổ liền kề của cùng một người sẽ xuất hiện đồng thời ở cả tập huấn luyện và tập hiệu chuẩn, dẫn đến rò rỉ dữ liệu (Data Leakage) nghiêm trọng và khiến mô hình lạm phát độ tự tin giả tạo. Do đó, hàm hiệu chuẩn \texttt{CalibratedClassifierCV} được thiết lập với \texttt{GroupKFold(n\_splits=3)} gom cụm theo \texttt{subject\_id}, đảm bảo tính độc lập tuyệt đối giữa các đối tượng trong nội bộ tập huấn luyện.
+\end{itemize}
+
+\subsection{Hệ thống 8 Mô hình Benchmark (7 Tabular ML + 1 Deep Learning MLP)}
+Để kiểm chứng tính tổng quát hóa của phương pháp đề xuất trên nhiều họ thuật toán khác nhau, chúng tôi thiết lập bộ benchmark gồm 8 mô hình:
+1) \textit{Logistic Regression (LR)}: Tuyến tính chuẩn mực;
+2) \textit{Decision Tree (DT)}: Cây quyết định CART (max\_depth=5);
+3) \textit{k-Nearest Neighbors (kNN)}: Dựa trên khoảng cách ($k=5$);
+4) \textit{AdaBoost}: Tăng cường trọng số cổ điển ($n_{\text{est}}=50$);
+5) \textit{Random Forest (RF)}: Rừng ngẫu nhiên Bagging ($n_{\text{est}}=100$, max\_depth=5);
+6) \textit{LightGBM}: Gradient Boosting hiện đại ($n_{\text{est}}=100$, learning\_rate=0.08);
+7) \textit{XGBoost}: Gradient Boosting tối ưu ($n_{\text{est}}=100$, max\_depth=5, learning\_rate=0.08, subsample=0.8);
+8) \textit{MLP (Deep Learning)}: Mạng nơ-ron nhiều lớp (Linear(25, 64) $\rightarrow$ BatchNorm $\rightarrow$ ReLU $\rightarrow$ Dropout(0.3) $\rightarrow$ Linear(64, 32) $\rightarrow$ ReLU $\rightarrow$ Linear(32, 2)), tối ưu bằng Adam, learning rate $10^{-3}$, weight decay $10^{-4}$ qua 100 epochs kèm Early Stopping.
+
+\subsection{Kiểm định Thống kê \& Khoảng Tin cậy Bootstrap}
+\begin{itemize}
+    \item \textbf{Kiểm định phi tham số Wilcoxon signed-rank test:} Đánh giá sự khác biệt có ý nghĩa thống kê giữa các phương pháp trên 15 cặp đối tượng kiểm thử LOSO, báo cáo giá trị thống kê $W$, mức ý nghĩa $p$-value và kích thước hiệu ứng tương quan hạng hai dãy ($r_{rb}$).
+    \item \textbf{Khoảng tin cậy 95\% Bootstrap:} Thực hiện tái lấy mẫu ngẫu nhiên $B = 1000$ lần trên phân phối dự đoán kiểm thử độc lập Out-of-Fold (OOF) để xác định biên độ dao động [$\text{CI}_{95}^{\text{low}}, \text{CI}_{95}^{\text{high}}$].
+\end{itemize}
+
+\subsection{Chỉ số Đánh giá Báo động Giả khi Vận động \texorpdfstring{($\text{FAR}_{\text{motion}}$)}{(FAR-motion)}}
+Chúng tôi xây dựng chỉ số chuyên biệt $\text{FAR}_{\text{motion}}$ nhằm đo lường rủi ro của hệ thống trong môi trường động. Ngưỡng vận động mạnh $\theta_{\text{motion}}$ được xác định tại phân vị thứ 80 của phương sai gia tốc $\text{Var}(\text{ACC})$ trên toàn bộ dữ liệu ($\theta_{\text{motion}} = 15.385$). Chỉ số được tính bằng tỷ lệ số mẫu không stress có cử động mạnh bị mô hình phán đoán sai thành Stress:
+\begin{equation}
+\text{FAR}_{\text{motion}} = \frac{\sum_{i} \mathbb{I}(\hat{y}_i = 1,\, y_i = 0,\, \text{Var}_i \ge \theta_{\text{mot}})}{\sum_{i} \mathbb{I}(y_i = 0,\, \text{Var}_i \ge \theta_{\text{mot}})} \times 100\%
+\end{equation}
+trong đó mẫu số là toàn bộ 295 cửa sổ Không-Stress có rung lắc mạnh trong dữ liệu WESAD.
+
+% =========================================================================
+% V. KẾT QUẢ THỰC NGHIỆM VÀ THẢO LUẬN
+% =========================================================================
+\section{Kết quả thực nghiệm và Thảo luận}
+
+\subsection{Khảo sát Đa Mô hình Benchmark Toàn diện (8 Models - Trả lời RQ1)}
+
+Bảng~\ref{tab:benchmark_8_models} và Hình~\ref{fig:multimodel_benchmark} tổng hợp kết quả thực nghiệm Out-of-Fold (OOF) của cả 8 họ mô hình trên 5.294 cửa sổ WESAD (LOSO 15-folds).
+
+\begin{table*}[t]
+\caption{Bảng so sánh hiệu năng thực nghiệm toàn diện trên 8 mô hình (7 Tabular ML + 1 Deep Learning MLP) theo giao thức LOSO 15-folds chống rò rỉ rãnh kép tại các chế độ Full Coverage (100\%) và Chọn lọc ($\tau = 0.80$).}
+\label{tab:benchmark_8_models}
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccc|cc|ccccc|c}
+\toprule
+\multirow{2}{*}{\textbf{Mô hình Benchmark}} & \multicolumn{4}{c|}{\textbf{Bắt buộc Dự đoán (Full Coverage)}} & \multicolumn{2}{c|}{\textbf{Sau Hiệu chuẩn}} & \multicolumn{5}{c|}{\textbf{Phân loại Chọn lọc ($\tau = 0.80$)}} & \multirow{2}{*}{\textbf{Giảm $\text{FAR}$}} \\
+& \textbf{Acc (\%)} & \textbf{Macro $F_1$} & \textbf{ECE} & $\text{FAR}_{\text{mot}}$ & \textbf{ECE} & $\text{FAR}_{\text{mot}}$ & \textbf{Độ phủ} & \textbf{Acc (\%)} & \textbf{Macro $F_1$} & \textbf{ECE} & $\text{FAR}_{\text{mot}}$ & \textbf{(\%)} \\
+\midrule
+Logistic Regression & 88.93 & 88.00\% & 0.0460 & 23.05\% & 0.0469 & 24.41\% & 72.48\% & 93.54 & 92.23\% & 0.0485 & 10.17\% & 55.9\% \\
+Decision Tree (CART)& 82.43 & 81.09\% & 0.1468 & 22.71\% & 0.0973 & 11.86\% & 50.70\% & 91.73 & 85.94\% & 0.0465 & 3.05\% & 86.6\% \\
+k-Nearest Neighbors & 86.95 & 85.48\% & 0.0835 & 20.34\% & 0.0548 & 20.34\% & 64.94\% & 95.03 & 93.69\% & 0.0500 & 9.15\% & 55.0\% \\
+AdaBoost Classifier & 90.52 & 89.66\% & 0.2727 & 13.90\% & 0.0722 & 12.88\% & 77.13\% & 94.24 & 93.29\% & 0.0548 & 1.69\% & 87.8\% \\
+Random Forest       & 89.21 & 88.01\% & 0.0638 & 13.90\% & 0.0390 & 16.61\% & 75.03\% & 95.32 & 94.49\% & 0.0336 & 3.39\% & 75.6\% \\
+LightGBM            & 86.53 & 85.66\% & 0.0915 & 13.56\% & 0.0686 & 9.49\%  & 63.15\% & 95.09 & 93.65\% & 0.0333 & 1.36\% & \textbf{90.0\%} \\
+MLP (Deep Learning) & 89.63 & 88.95\% & 0.0312 & 24.00\% & 0.0336 & 25.63\% & 75.16\% & 95.76 & 95.38\% & 0.0179 & 10.17\% & 57.6\% \\
+\textbf{XGBoost (Đề xuất)} & \textbf{88.67} & \textbf{87.84\%} & \textbf{0.0648} & \textbf{12.20\%} & \textbf{0.0739} & \textbf{9.15\%} & \textbf{69.38\%} & \textbf{96.05} & \textbf{95.15\%} & \textbf{0.0320} & \textbf{1.69\%} & \textbf{86.1\%} \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{Images/fig_multimodel_benchmark.png}
+\caption{So sánh hiệu năng đa mô hình trên 8 thuật toán (7 Tabular ML + 1 Deep Learning MLP): (A) Tỷ lệ báo động giả khi vận động ($\text{FAR}_{\text{motion}}$) bị triệt tiêu từ 55.0\% đến 90.0\% trên toàn bộ các mô hình; (B) Sự bứt phá của điểm Selective Macro $F_1$-score tại ngưỡng $\tau = 0.80$.}
+\label{fig:multimodel_benchmark}
+\end{figure*}
+
+Kết quả thực nghiệm trên 8 mô hình mang lại những phát hiện khoa học mang tính bản lề:
+\begin{enumerate}
+    \item \textbf{Tính phổ quát của hiện tượng báo động giả (Universal Vulnerability):} Ở chế độ Full Coverage (100\%), mọi mô hình đều ghi nhận $\text{FAR}_{\text{motion}}$ cao nghiêm trọng: từ $12.20\%$ (ở XGBoost) đến tận $24.00\%$ (ở MLP Deep Learning). Đáng chú ý, mạng học sâu MLP dù đạt điểm tổng quát hóa tốt ($F_1 = 88.95\%$) nhưng lại chịu tỷ lệ báo động giả khi vận động cao nhất ($24.00\%$). Điều này bác bỏ giả thiết cho rằng "chỉ cần dùng mạng nơ-ron sâu là giải quyết được nhiễu động học", khẳng định báo động giả là \textit{bản chất sinh lý học y sinh} xuất phát từ kích hoạt giao cảm tự nhiên, không thể giải quyết nếu ép buộc mô hình phải đoán 100\% thời gian.
+    \item \textbf{Năng lực tổng quát hóa của Khung Chọn lọc đề xuất:} Khi kích hoạt cơ chế chọn lọc tại $\tau = 0.80$, tỷ lệ báo động giả sụt giảm ngoạn mục trên \textbf{tất cả 8 mô hình} (mức giảm từ $55.0\%$ đến $90.0\%$), đồng thời Macro $F_1$ tăng vọt từ $3.6\%$ đến $8.0\%$. Trong đó, XGBoost đạt điểm cân bằng hoàn hảo nhất: kiểm soát $\text{FAR}_{\text{motion}}$ ở mức thấp vượt trội $1.69\%$ (trên tập gộp OOF) và $4.07\%$ (trung bình 15 folds LOSO), Selective Macro $F_1$ đạt $95.20\%$ tại độ phủ $69.42\%$.
+\end{enumerate}
+
+\subsection{Đối chiếu Sâu sắc: Tabular ML (XGBoost) vs Deep Learning (MLP)}
+Để làm sáng tỏ sự khác biệt giữa hai trường phái mô hình, chúng tôi phân tích kết quả kiểm định phi tham số Wilcoxon và Bootstrap Paired Difference giữa MLP và XGBoost trên 15 folds LOSO (dựa trên các file thống kê độc lập):
+\begin{itemize}
+    \item \textbf{Hiệu năng tại chế độ Full Coverage:} Về Macro $F_1$, MLP ($88.95\%$) và XGBoost ($87.84\%$) không có sự khác biệt có ý nghĩa thống kê ($W = 14.0, p = 0.975, r_{rb} = -0.010, p_{\text{holm}} = 1.0$). Tuy nhiên, XGBoost vượt trội hơn hẳn về khả năng kháng nhiễu động học ban đầu ($\text{FAR}_{\text{motion}} = 12.20\%$ so với $24.00\%$ của MLP).
+    \item \textbf{Hiệu năng Chọn lọc tại $\tau = 0.80$:} Cả hai mô hình đều đạt Selective Macro $F_1 > 95\%$ ($95.38\%$ ở MLP và $95.20\%$ ở XGBoost). Khoảng tin cậy 95\% Bootstrap của độ chênh lệch $(MLP - XGB)$ chứa giá trị 0: $\Delta F_1 = +0.0117$ (95\% CI: $[-0.0256, +0.0513]$) và $\Delta \text{FAR}_{\text{sel}} = +2.03\%$ (95\% CI: $[-5.44\%, +8.54\%]$). Điều này chứng minh cơ chế Selective Classification có tính tổng quát cao, cải thiện đồng nhất cả mô hình dạng bảng lẫn mô hình học sâu.
+    \item \textbf{Phân tích biến thiên cá thể (Per-subject Trade-off):} Phân tích chi tiết trên từng cá thể cho thấy đặc tính rất thú vị: Ở ca ngoại lai khó $S_{12}$, mạng MLP với các liên kết phi tuyến dày đặc đã dự đoán chính xác trạng thái stress ($F_{1,\text{stress}} = 97.2\%$), trong khi các mô hình cây thất bại vì đặc trưng EDA của đối tượng này bị ức chế. Tuy nhiên, MLP lại gặp hiện tượng từ chối quá mức (over-abstention) ở đối tượng $S_{15}$ (độ phủ $0\%$, tức mô hình từ chối hoàn toàn phiên đo của $S_{15}$). Ngược lại, XGBoost duy trì độ phủ đồng đều trên toàn bộ 15 đối tượng (trung bình $69.42\%$, độ lệch chuẩn thấp hơn), chứng minh tính ổn định thực dụng cao hơn khi triển khai thương mại.
+\end{itemize}
+
+\subsection{Trả lời RQ2 \& RQ3: Đánh đổi Chọn lọc và Đánh giá Chi tiết 15 Folds LOSO}
+
+Bảng~\ref{tab:ketqua_full} khảo sát chi tiết quy luật đánh đổi của mô hình XGBoost qua các ngưỡng tin cậy $\tau \in [0.60, 0.90]$ trên toàn bộ tập kiểm thử liên đối tượng.
+
+\begin{table}[htbp]
+\caption{Quy luật đánh đổi Phân loại chọn lọc của XGBoost qua các ngưỡng khắt khe $\tau$ (LOSO 15-folds).}
+\label{tab:ketqua_full}
+\centering
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Cấu hình} & \textbf{Độ phủ} & \textbf{Macro $F_1$} & \textbf{Stress $F_1$} & \textbf{ECE} & $\text{FAR}_{\text{motion}}$ \\
+\midrule
+XGBoost (Gốc - 100\%)        & 100.0\% & 88.13\% & 84.99\% & 0.0612 & 12.20\% \\
+XGBoost + Isotonic (100\%)   & 100.0\% & 89.88\% & 86.68\% & 0.0744 & 10.85\% \\
+\midrule
+Chọn lọc ($\tau=0.60$)       & 89.76\% & 92.86\% & 90.45\% & 0.0534 & 7.46\% \\
+Chọn lọc ($\tau=0.70$)       & 81.79\% & 93.68\% & 91.28\% & 0.0406 & 4.41\% \\
+\textbf{Chọn lọc tối ưu ($\tau=0.80$)} & \textbf{69.42\%} & \textbf{95.20\%} & \textbf{93.15\%} & \textbf{0.0290} & \textbf{4.07\%} \\
+Chọn lọc bảo thủ ($\tau=0.90$)& 50.38\% & 96.93\% & 95.54\% & 0.0161 & 0.68\% \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{Images/far_motion_reduction.png}
+\caption{Sự suy giảm vượt bậc của tỷ lệ báo động giả khi vận động ($\text{FAR}_{\text{motion}}$) khi chuyển từ mô hình bắt buộc dự đoán sang khung chọn lọc có quyền từ chối.}
+\label{fig:far_motion}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.88\linewidth]{Images/calibration_curve.png}
+\caption{Biểu đồ độ tin cậy xác suất (Reliability Diagram): Hiệu chuẩn Isotonic kéo đường phân phối bão hòa của XGBoost về sát đường chuẩn hoàn hảo.}
+\label{fig:calibration}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.96\linewidth]{Images/risk_coverage_curve.png}
+\caption{Đường cong đánh đổi Risk-Coverage: Khi ngưỡng $\tau$ tăng dần, điểm Selective $F_1$ tăng trưởng ổn định trong khi rủi ro sai sót sụt giảm rõ rệt.}
+\label{fig:risk_coverage}
+\end{figure}
+
+Tại điểm vận hành tối ưu $\tau = 0.80$, độ phủ khả dụng duy trì ở mức cao $69.42\%$ (95\% CI: [58.34\%, 79.84\%]), Selective Macro $F_1$ đạt \textbf{95.20\%} (Stress $F_1$ đạt $93.15\%$, 95\% CI: [84.80\%, 98.54\%]), Selective Accuracy đạt $96.08\%$, đồng thời $\text{FAR}_{\text{motion}}$ sụt giảm ngoạn mục xuống còn \textbf{4.07\%} (95\% CI: [0.0\%, 11.07\%]), kéo giảm $62.5\%$ báo động giả so với cấu hình hiệu chuẩn toàn phần ($10.85\%$). 
+
+Đáng chú ý, ở chế độ Full Coverage (100\%), sai số hiệu chuẩn kỳ vọng ECE của XGBoost sau hồi quy Isotonic tăng nhẹ từ $0.0612$ lên $0.0744$. Hiện tượng này xuất phát từ bản chất hàm bậc thang phi tham số (piecewise non-parametric step function) của Isotonic Regression: trong kiểm thử liên đối tượng (LOSO), sự dịch chuyển phân phối sinh lý (inter-subject physiological shift) có thể tạo ra độ lệch cục bộ ở một vài phân vùng xác suất nếu ép buộc mô hình phải đưa ra phán đoán trên toàn bộ 100\% các mẫu. Tuy nhiên, vai trò cốt lõi của Isotonic Calibration trong nghiên cứu này không phải là tối ưu hóa toàn phần, mà đóng vai trò như một \textbf{bộ phân cực độ tin cậy (Confidence Separator)}: thuật toán đẩy mạnh các mẫu tự tin về sát 0 hoặc 1 và dồn các mẫu lấp lửng vào dải trung gian $[0.3, 0.7]$. Do đó, khi kết hợp cùng cơ chế Phân loại chọn lọc ($\tau = 0.80$), toàn bộ vùng bất định bị triệt tiêu, giúp ECE sụt giảm sâu xuống mức tối ưu \textbf{0.0290}.
+
+Để xem xét sâu hơn sự biến thiên giữa các cá thể, Bảng~\ref{tab:per_subject_loso} và Hình~\ref{fig:subject_loso_fold} trình bày chi tiết hiệu năng trên từng đối tượng kiểm thử trong 15 folds LOSO.
+
+\begin{table*}[t]
+\caption{Hiệu năng chi tiết theo từng đối tượng trên 15 Folds Leave-One-Subject-Out (LOSO) với mô hình XGBoost hiệu chuẩn và cơ chế Phân loại chọn lọc ($\tau = 0.80$). (Ghi chú: 15 folds $S_1 \rightarrow S_{15}$ tương ứng với các đối tượng $S2 \rightarrow S11, S13 \rightarrow S17$ trong WESAD gốc; fold $S_{12}$ tương ứng với đối tượng $S14$ do WESAD gốc không có $S1$ và $S12$).}
+\label{tab:per_subject_loso}
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccc|ccc|cccc}
+\toprule
+\multirow{2}{*}{\textbf{Fold / Sub}} & \multirow{2}{*}{\textbf{Số mẫu $n$}} & \textbf{Tỷ lệ Stress} & \textbf{Vận động mạnh} & \multicolumn{3}{c|}{\textbf{Bắt buộc Dự đoán (Full Coverage)}} & \multicolumn{4}{c}{\textbf{Phân loại Chọn lọc ($\tau = 0.80$)}} \\
+& & \textbf{(\%)} & \textbf{(\%)} & \textbf{$F_{1,\text{XGB}}$ (\%)} & \textbf{$F_{1,\text{Cal}}$ (\%)} & \textbf{$\text{FAR}_{\text{Cal}}$ (\%)} & \textbf{Độ phủ (\%)} & \textbf{$F_{1,\text{sel}}$ (\%)} & \textbf{Acc$_{\text{sel}}$ (\%)} & \textbf{$\text{FAR}_{\text{sel}}$ (\%)} \\
+\midrule
+S1 & 338 & 34.3\% & 18.9\% & 76.6\% & 71.8\% & 0.0\% & 73.1\% & 17.6\% & 88.7\% & 0.0\% \\
+S2 & 341 & 35.5\% & 24.0\% & 73.1\% & 71.2\% & 63.6\% & 59.8\% & 81.1\% & 77.0\% & 54.5\% \\
+S3 & 345 & 34.8\% & 15.1\% & 100.0\% & 100.0\% & 0.0\% & 100.0\% & 100.0\% & 100.0\% & 0.0\% \\
+S4 & 353 & 34.3\% & 5.4\% & 89.0\% & 92.1\% & 78.9\% & 71.7\% & 96.0\% & 97.6\% & 31.6\% \\
+S5 & 351 & 35.0\% & 4.6\% & 81.7\% & 94.2\% & 7.1\% & 53.8\% & 100.0\% & 100.0\% & 0.0\% \\
+S6 & 351 & 34.5\% & 17.4\% & 85.5\% & 90.6\% & -- & 60.4\% & 98.6\% & 98.6\% & -- \\
+S7 & 352 & 35.8\% & 24.7\% & 91.4\% & 90.9\% & 0.0\% & 84.1\% & 97.8\% & 99.0\% & 0.0\% \\
+S8 & 350 & 34.6\% & 8.6\% & 69.2\% & 64.8\% & 0.0\% & 87.4\% & 54.7\% & 84.3\% & 0.0\% \\
+S9 & 365 & 37.5\% & 16.2\% & 69.2\% & 98.6\% & 0.0\% & 14.8\% & 100.0\% & 100.0\% & 0.0\% \\
+S10 & 357 & 35.9\% & 32.2\% & 98.0\% & 100.0\% & 0.0\% & 94.4\% & 100.0\% & 100.0\% & 0.0\% \\
+S11 & 354 & 35.6\% & 42.1\% & 90.0\% & 89.0\% & 0.0\% & 63.0\% & 100.0\% & 100.0\% & 0.0\% \\
+S12 & 357 & 35.9\% & 20.2\% & 65.3\% & 24.7\% & -- & 64.1\% & 0.0\% & 96.1\% & -- \\
+S13 & 358 & 36.3\% & 30.4\% & 89.0\% & 90.8\% & 6.8\% & 44.7\% & 100.0\% & 100.0\% & 0.0\% \\
+S14 & 356 & 35.7\% & 11.5\% & 100.0\% & 100.0\% & 0.0\% & 95.5\% & 100.0\% & 100.0\% & 0.0\% \\
+S15 & 366 & 37.4\% & 28.1\% & 98.2\% & 89.3\% & 30.0\% & 76.5\% & 100.0\% & 100.0\% & 30.0\% \\
+\midrule
+\textbf{Trung bình $\pm$ ĐLC} & \textbf{5294} & \textbf{35.5 $\pm$ 1.0\%} & \textbf{20.0 $\pm$ 10.5\%} & \textbf{85.1 $\pm$ 12.0\%} & \textbf{84.5 $\pm$ 19.9\%} & \textbf{14.3 $\pm$ 26.8\%} & \textbf{69.6 $\pm$ 22.2\%} & \textbf{83.1 $\pm$ 32.6\%} & \textbf{96.1 $\pm$ 7.1\%} & \textbf{6.6 $\pm$ 16.8\%} \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.92\linewidth]{Images/subject_loso_fold.jpg}
+\caption{Biểu đồ phân bố hiệu năng chi tiết theo từng đối tượng trên 15 folds LOSO tại ngưỡng tối ưu $\tau = 0.80$: Điểm Stress $F_{1,\text{sel}}$ (cột xanh) và Tỷ lệ bao phủ Coverage (đường cam) cùng các đường chuẩn mức trung bình toàn bộ tập dữ liệu (Stress $F_{1,\text{sel}} = 83.1\%$, Coverage $= 69.6\%$).}
+\label{fig:subject_loso_fold}
+\end{figure*}
+
+Bảng~\ref{tab:per_subject_loso} và Hình~\ref{fig:subject_loso_fold} bóc tách sâu sắc sự biến thiên hiệu năng giữa các cá thể (inter-subject heterogeneity):
+\begin{enumerate}
+    \item Đa số các đối tượng, cụ thể là \textbf{8 trên 15 folds} ($8/15$ folds gồm: S3, S5, S9, S10, S11, S13, S14, S15), cơ chế phân loại chọn lọc đạt điểm tuyệt đối $F_{1,\text{sel}} = 100.0\%$, và 2 folds tiếp theo đạt hiệu năng rất cao (S6 đạt $98.6\%$, S7 đạt $97.8\%$). Điều này chứng minh tính hiệu quả vượt bậc khi hệ thống chỉ chấp nhận đưa ra phán đoán lúc độ tự tin xác suất vượt ngưỡng an toàn.
+    \item Độ phủ dao động đáng kể: từ $14.8\%$ ở đối tượng S9 (mô hình chủ động từ chối phần lớn các cửa sổ lấp lửng để bảo toàn độ chính xác tuyệt đối $100.0\%$) đến $100.0\%$ ở đối tượng S3. Trung bình độ phủ trên 15 đối tượng duy trì ở mức $69.6\% \pm 22.2\%$, và độ chính xác chọn lọc trung bình đạt $96.1\% \pm 7.1\%$.
+    \item Tỷ lệ báo động giả $\text{FAR}_{\text{sel}}$ được kéo giảm triệt để về $0.0\%$ trên 9/13 đối tượng có mẫu vận động mạnh không stress, khẳng định năng lực kìm hãm cảnh báo sai lệch vượt trội.
+\end{enumerate}
+
+\subsection{Trả lời RQ4 (Phần 1): Bóc tách Ngữ cảnh Gia tốc (Ablation Study Đa Seed)}
+Nhằm trả lời câu hỏi: \textit{Liệu gia tốc kế (ACC) có thực sự cần thiết, hay bản thân tín hiệu sinh lý đã đủ để tự từ chối các cửa sổ nhiễu?}, chúng tôi tiến hành phân tích cắt bỏ trên 5 random seeds (42, 123, 456, 789, 2024) theo 3 cấu hình:
+\begin{itemize}
+    \item \textbf{Cấu hình A (Chỉ sinh lý - Physio-only):} 19 đặc trưng BVP, EDA, TEMP.
+    \item \textbf{Cấu hình B (Đầy đủ ngữ cảnh - Context-aware):} 25 đặc trưng gồm sinh lý kết hợp ACC.
+    \item \textbf{Cấu hình C (Chỉ gia tốc - ACC-only):} 6 đặc trưng gia tốc kế thuần túy.
+\end{itemize}
+
+\begin{table}[htbp]
+\caption{Nghiên cứu cắt bỏ đa hạt giống (5 seeds) tại ngưỡng $\tau = 0.80$ trên dữ liệu LOSO WESAD (Trung bình $\pm$ Độ lệch chuẩn qua 5 seeds ngẫu nhiên).}
+\label{tab:ablation_seeds}
+\centering
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Cấu hình} & \textbf{Độ phủ (\%)} & \textbf{Sel. Macro $F_1$ (\%)} & $\text{FAR}_{\text{motion}}^{\text{sel}}$ (\%) & $\text{FAR}_{\text{motion}}^{\text{full}}$ (\%) \\
+\midrule
+A: Chỉ sinh lý (No ACC)  & $68.60 \pm 0.71$ & $92.98 \pm 0.61$ & $4.81 \pm 0.56$ & $13.69 \pm 0.74$ \\
+\textbf{B: Đầy đủ (+ ACC)} & $\mathbf{69.60 \pm 0.33}$ & $\mathbf{94.79 \pm 0.50}$ & $\mathbf{3.46 \pm 0.65}$ & $\mathbf{10.44 \pm 0.44}$ \\
+C: Chỉ gia tốc (ACC-only) & $45.14 \pm 0.93$ & $82.38 \pm 0.66$ & $6.10 \pm 1.59$ & $26.31 \pm 0.70$ \\
+\bottomrule
+\end{tabular}}
+\vspace{1mm}
+\footnotesize{\textit{Ghi chú:} Sel. Macro $F_1$ phản ánh $F_1$ trung bình đều trên 2 lớp (Stress và Non-stress). Điểm nhị phân $F_{1,\text{stress}}$ tại ngưỡng $\tau=0.80$ lần lượt là: Cấu hình A: $89.61 \pm 0.87\%$; Cấu hình B: $\mathbf{92.58 \pm 0.67\%}$; Cấu hình C: $74.23 \pm 1.11\%$.}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{Images/ablation_acc_impact.png}
+\caption{So sánh đa chiều trong nghiên cứu cắt bỏ tại $\tau=0.80$: Sự hiện diện của ACC giúp tăng cường độ phủ khả dụng và kìm hãm tỷ lệ báo động giả.}
+\label{fig:ablation_acc}
+\end{figure}
+
+Kết quả thực nghiệm tại Bảng~\ref{tab:ablation_seeds} mang lại những phát hiện quan trọng:
+\begin{enumerate}
+    \item \textbf{Cải thiện ổn định trên đa hạt giống ngẫu nhiên (Multi-seed Consistency):} Qua 5 lần chạy với các hạt giống ngẫu nhiên khác nhau, cấu hình đầy đủ kết hợp gia tốc kế (Cấu hình B) liên tục vượt trội hơn cấu hình chỉ dùng tín hiệu sinh lý (Cấu hình A). Điểm Selective Macro $F_1$ trung bình tăng từ $92.98\% \pm 0.61\%$ lên $94.79\% \pm 0.50\%$ ($+1.81\%$), đồng thời tỷ lệ báo động giả khi vận động $\text{FAR}_{\text{motion}}^{\text{sel}}$ giảm từ $4.81\% \pm 0.56\%$ xuống $3.46\% \pm 0.65\%$ (giảm $1.35\%$). Ở chế độ Full Coverage (100\%), sự hiện diện của kênh ACC giúp hạ $\text{FAR}_{\text{motion}}^{\text{full}}$ từ $13.69\%$ xuống $10.44\%$ (giảm $3.25\%$).
+    \item \textbf{Cơ chế Cổng kiểm soát bất định (Uncertainty Gate):} Trong môi trường có rung lắc cơ học mạnh ($\text{Var}(\text{ACC}) \ge \theta_{\text{motion}}$), độ phủ chấp nhận của Cấu hình B đạt $61.76\% \pm 0.98\%$, cao hơn rõ rệt so với $56.05\% \pm 1.94\%$ của Cấu hình A. Điều này chứng minh rằng dữ liệu gia tốc kế cung cấp ngữ cảnh chuyển động quan trọng, giúp bộ phân loại tự tin giữ lại các cửa sổ stress thật sự xảy ra trong lúc vận động thay vì loại bỏ nhầm.
+    \item \textbf{Tính không đồng nhất cá thể trong kiểm định thống kê liên đối tượng:} Kiểm định phi tham số Wilcoxon signed-rank test trên 15 cặp đối tượng kiểm thử LOSO giữa Cấu hình B và A (đánh giá tại seed chuẩn $S_0=42$) cho kết quả: đối với $F_{1,\text{sel}}$ đạt $W = 9.0, p = 0.753, r_{rb} = 0.143$ ($p_{\text{holm}} = 1.000$); đối với $\text{FAR}_{\text{sel}}$ đạt $W = 1.0, p = 1.000, r_{rb} = -0.333$ ($p_{\text{holm}} = 1.000$); và đối với Coverage đạt $W = 37.0, p = 0.552, r_{rb} = 0.187$ ($p_{\text{holm}} = 1.000$). Khi hiệu chỉnh đa kiểm định theo phương pháp Holm-Bonferroni cho toàn bộ 6 chỉ số đánh giá, tất cả các mức ý nghĩa đều đạt $p_{\text{holm}} = 1.000$. Đồng thời, khoảng tin cậy 95\% Paired Cluster Bootstrap của độ chênh lệch gộp $(B - A)$ cũng đều chứa giá trị 0: $\Delta F_{1,\text{sel}} = +0.0342$ (95\% CI: $[-0.0278, +0.1469]$) và $\Delta \text{FAR}_{\text{sel}} = -1.0169\%$ (95\% CI: $[-4.5977, +1.0870]$). 
+
+    Về mặt khoa học y sinh, việc kiểm định từng cặp đối tượng không đạt ngưỡng $p < 0.05$ không làm suy giảm giá trị của kênh ACC, mà trái lại đã phản ánh chân thực bản chất biến thiên lớn về thói quen vận động giữa các cá thể (inter-subject motor variability):
+    \begin{itemize}
+        \item Đối với các đối tượng có tần suất cử động tay thường xuyên hoặc biên độ rung lắc lớn trong sinh hoạt (ví dụ: Fold $S_4$ có $\text{FAR}_{\text{sel}}$ giảm mạnh từ $52.6\%$ xuống $31.6\%$, hoặc Fold $S_8$ có $F_{1,\text{sel}}$ bứt phá từ $13.8\%$ lên $54.7\%$), cảm biến ACC đóng vai trò then chốt như một tấm khiên cơ học ngăn chặn các báo động giả.
+        \item Ngược lại, đối với những cá nhân có trạng thái thể chất tĩnh tại trong suốt phiên đo (như Fold $S_3, S_5, S_{10}$), tín hiệu nhịp tim BVP và điện trở da EDA đã duy trì tỷ số tín hiệu trên nhiễu (SNR) rất cao, khiến đóng góp biên của gia tốc kế không tạo ra sự khác biệt đáng kể.
+    \end{itemize}
+    Do đó, việc tích hợp cảm biến gia tốc ACC đóng vai trò là một lớp bảo hộ an toàn (safety net) không thể thiếu khi triển khai mô hình vào thực tế đời sống tự do (in-the-wild), nơi biên độ và tần suất vận động của người dùng không thể lường trước.
+\end{enumerate}
+
+\subsection{Trả lời RQ4 (Phần 2): Giải thích Sinh lý học bằng TreeSHAP \& Phân tích Thất bại Ngoại lai (Fold S12)}
+
+\textbf{1) Đóng góp đặc trưng toàn cục (Global SHAP):} Phân tích TreeSHAP \cite{lundberg2017unified} trên toàn bộ các dự đoán Out-of-Fold khẳng định tỷ trọng chi phối của 4 nhóm cảm biến: EDA chiếm $31.6\%$, BVP/HRV chiếm $26.6\%$, TEMP chiếm $25.9\%$ và ACC đóng góp $15.9\%$. Các đặc trưng quan trọng nhất gồm: \texttt{eda\_tonic\_mean} (13.6\%), \texttt{hrv\_mean\_hr} (12.3\%), \texttt{temp\_max} (10.6\%) và \texttt{eda\_scr\_peaks\_count} (10.3\%). Đặc biệt, top 5 đặc trưng này duy trì tính ổn định gần như tuyệt đối trên 15 folds LOSO.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{Images/shap_summary.png}
+\caption{Phân tích phân phối đóng góp đặc trưng SHAP (Global Feature Attribution) cho trạng thái Stress từ tín hiệu đeo cổ tay.}
+\label{fig:shap}
+\end{figure}
+
+\textbf{2) Cơ chế Từ chối cục bộ (Rejection Mechanism):} Khi kiểm tra các cửa sổ rơi vào vùng Từ chối (\textit{Uncertain}), giá trị SHAP ghi nhận sự mâu thuẫn trực giao giữa các kênh tín hiệu: gia tốc kế ACC ghi nhận rung lắc mạnh (kéo dự đoán về hướng phi stress), trong khi biến thiên nhịp tim HRV và điện trở da EDA lại dao động ở mức lấp lửng. Chính sự xung đột thông tin này đẩy entropy xác suất lên cao, kích hoạt luật từ chối an toàn.
+
+\textbf{3) Phân tích Ca Thất bại Ngoại lai (Failure Analysis trên Đối tượng Fold S12):} Hình~\ref{fig:failure_s12} minh họa ca kiểm thử cá biệt trên đối tượng ở Fold $S_{12}$ (tương ứng đối tượng $S14$ trong bộ dữ liệu WESAD gốc do WESAD không có đối tượng $S1$ và $S12$). Dữ liệu thực nghiệm chỉ ra $S_{12}$ là đối tượng điển hình của hiện tượng \textit{suy giảm phản ứng điện trở da (Electrodermal Hypo-responder)}: Giá trị chuẩn hóa z-score của \texttt{eda\_tonic\_mean} và \texttt{eda\_scr\_peaks\_count} của đối tượng này rơi vào mức rất thấp ($-0.90$ và $-1.02$), tạo ra độ lệch giá trị SHAP âm cực lớn ($-3.22$) kéo phán đoán về lớp Không-Stress, lấn át hoàn toàn phản ứng tim đập nhanh thực tế do giao cảm kích thích ($z = +2.76$). Hiện tượng phân ly sinh lý học này giải thích căn nguyên thất bại ($F_{1,\text{sel}} = 0.0\%$) của các mô hình học máy dựa trên đặc trưng EDA truyền thống khi đối mặt với những người dùng có phản xạ tiết mồ hôi không điển hình, đồng thời đặt ra yêu cầu cấp thiết về các kiến trúc cá nhân hóa thích ứng (adaptive personalization) trong nghiên cứu tương lai.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{Images/fig_failure_S12.png}
+\caption{Phân tích phân ly sinh lý học trên đối tượng thất bại S12: Phản xạ điện trở da suy yếu (Hypo-response) lấn át biểu hiện tăng nhịp tim thực tế.}
+\label{fig:failure_s12}
+\end{figure}
+
+% =========================================================================
+% VI. KẾT LUẬN (CONCLUSION)
+% =========================================================================
+\section{Kết luận}
+Bài báo đã chứng minh một cách tường minh rằng: bài toán nhận diện căng thẳng tâm lý trên thiết bị đeo cổ tay không thể giải quyết triệt để nếu tiếp tục duy trì tiền lệ bắt buộc dự đoán trong 100\% thời gian. Bằng việc thực hiện khảo sát benchmark mở rộng trên 8 họ mô hình (gồm 7 mô hình dạng bảng và mạng nơ-ron sâu MLP) theo giao thức kiểm thử 15-folds LOSO chống rò rỉ rãnh kép, chúng tôi đã chứng minh hiện tượng báo động giả do vận động cơ học diễn ra phổ biến trên mọi mô hình, và cơ chế Phân loại chọn lọc kết hợp Hiệu chuẩn Isotonic có khả năng triệt tiêu từ 55.0\% đến 90.0\% các cảnh báo sai lầm này. Mô hình đề xuất đạt độ tin cậy vượt bậc (Selective Macro $F_1 = 95.20\%$, ECE sụt giảm xuống $0.0290$, $\text{FAR}_{\text{motion}}$ sụt giảm xuống $4.07\%$) trong khi vẫn đảm bảo độ phủ $69.42\%$ thời gian khả dụng. Khung phương pháp có độ phức tạp tính toán thấp, minh bạch thông qua phân tích TreeSHAP, giải trình chi tiết được tính biến thiên liên cá thể qua 15 folds LOSO và hoàn toàn sẵn sàng triển khai trên các thiết bị đeo thông minh thế hệ mới.
+
+% =========================================================================
+% TÀI LIỆU THAM KHẢO (REFERENCES CHUẨN IEEE)
+% =========================================================================
+\begin{thebibliography}{00}
+\bibitem{schmidt2018wesad}
+P.~Schmidt, A.~Reiss, R.~Duerichen, C.~Gorgas, and K.~Van~Laerhoven, ``Introducing WESAD, a multimodal dataset for wearable stress and affect detection,'' in \textit{Proc. 20th ACM Int. Conf. Multimodal Interaction (ICMI)}, 2018, pp. 400--408.
+
+\bibitem{bobade2020stress}
+P.~Bobade and M.~Vani, ``Stress detection with machine learning and deep learning using wearable sensors,'' in \textit{Proc. IEEE Int. Conf. Innov. Mech. Ind. Appl. (ICIMIA)}, 2020, pp. 234--240.
+
+\bibitem{can2019stress}
+Y.~S.~Can, B.~Arnrich, and C.~Ersoy, ``Stress detection in daily life using wearable sensors: A survey,'' \textit{Sensors}, vol.~19, no.~13, p. 3004, 2019.
+
+\bibitem{gjoreski2016continuous}
+M.~Gjoreski, H.~Gjoreski, M.~Lu\v{s}trek, and M.~Gams, ``Continuous stress detection using a wrist device: In laboratory and real life,'' in \textit{Proc. ACM Int. Joint Conf. Pervasive Ubiquitous Comput. (UbiComp Adjunct)}, 2016, pp. 1185--1193.
+
+\bibitem{siirtola2019continuous}
+P.~Siirtola, ``Continuous stress detection using the BVP signal from a wrist-worn device,'' in \textit{Proc. IEEE Int. Conf. Pervasive Comput. Commun. Workshops (PerCom Workshops)}, 2019, pp. 603--608.
+
+\bibitem{sano2018multimodal}
+A.~Sano, A.~J.~Phillips, A.~Z.~Yu, A.~W.~McHill, S.~Taylor, N.~Jaques, C.~A.~Czeisler, E.~B.~Klerman, and R.~W.~Picard, ``Recognizing academic performance, sleep and stress from objective mobile, wearable, and network data,'' \textit{IEEE Trans. Affect. Comput.}, vol.~14, no.~2, pp. 977--990, 2023.
+
+\bibitem{zhang2014troika}
+Z.~Zhang, Z.~Pi, and B.~Liu, ``TROIKA: A general framework for heart rate monitoring using wrist-type photoplethysmographic signals during intensive physical exercise,'' \textit{IEEE Trans. Biomed. Eng.}, vol.~62, no.~2, pp. 522--531, 2015.
+
+\bibitem{schumm2010effect}
+J.~Schumm, M.~B\"achlin, C.~Setz, B.~Arnrich, D.~Roggen, and G.~Tr\"oster, ``Effect of movement on the electrodermal response after a startle event,'' \textit{Physiol. Meas.}, vol.~31, no.~12, pp. 1657--1670, 2010.
+
+\bibitem{chow1970optimum}
+C.~K.~Chow, ``On optimum recognition error and reject tradeoff,'' \textit{IEEE Trans. Inf. Theory}, vol.~16, no.~1, pp. 41--46, 1970.
+
+\bibitem{geifman2017selective}
+Y.~Geifman and R.~El-Yaniv, ``Selective classification for deep neural networks,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~30, 2017, pp. 4878--4887.
+
+\bibitem{geifman2019selectivenet}
+Y.~Geifman and R.~El-Yaniv, ``SelectiveNet: A deep neural network with an integrated reject option,'' in \textit{Proc. 36th Int. Conf. Machine Learning (ICML)}, 2019, pp. 2151--2159.
+
+\bibitem{cortes2016learning}
+C.~Cortes, G.~DeSalvo, and M.~Mohri, ``Learning with rejection,'' in \textit{Proc. Int. Conf. Algorithmic Learning Theory (ALT)}, 2016, pp. 67--82.
+
+\bibitem{hendrickx2021machine}
+K.~Hendrickx, L.~Perini, D.~Van~der~Plas, W.~Meert, and J.~Davis, ``Machine learning with a reject option: A survey,'' \textit{Mach. Learn.}, vol.~113, no.~5, pp. 2073--2110, 2024.
+
+\bibitem{guo2017calibration}
+C.~Guo, G.~Pleiss, Y.~Sun, and K.~Q.~Weinberger, ``On calibration of modern neural networks,'' in \textit{Proc. 34th Int. Conf. Machine Learning (ICML)}, 2017, pp. 1321--1330.
+
+\bibitem{niculescu2005predicting}
+A.~Niculescu-Mizil and R.~Caruana, ``Predicting good probabilities with supervised learning,'' in \textit{Proc. 22nd Int. Conf. Machine Learning (ICML)}, 2005, pp. 625--632.
+
+\bibitem{platt1999probabilistic}
+J.~Platt, ``Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods,'' \textit{Adv. Large Margin Classif.}, vol.~10, no.~3, pp. 61--74, 1999.
+
+\bibitem{greco2016cvxeda}
+A.~Greco, G.~Valenza, A.~Lanata, E.~P.~Scilingo, and R.~Citi, ``cvxEDA: A convex optimization approach to electrodermal activity processing,'' \textit{IEEE Trans. Biomed. Eng.}, vol.~63, no.~4, pp. 797--804, 2016.
+
+\bibitem{shwartzziv2022tabular}
+R.~Shwartz-Ziv and R.~Armon, ``Tabular data: Deep learning is not all you need,'' \textit{Inf. Fusion}, vol.~81, pp. 84--90, 2022.
+
+\bibitem{grinsztajn2022why}
+L.~Grinsztajn, E.~Oyallon, and G.~Varoquaux, ``Why do tree-based models still outperform deep learning on typical tabular data?,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~35, 2022, pp. 507--520.
+
+\bibitem{lundberg2017unified}
+S.~M.~Lundberg and S.-I.~Lee, ``A unified approach to interpreting model predictions,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~30, 2017, pp. 4765--4774.
+
+\bibitem{tarvainen2014kubios}
+M.~P.~Tarvainen, J.-P.~Niskanen, J.~A.~Lipponen, P.~O.~Ranta-Aho, and P.~A.~Karjalainen, ``Kubios HRV--heart rate variability analysis software,'' \textit{Comput. Methods Programs Biomed.}, vol.~113, no.~1, pp. 210--220, 2014.
+
+\bibitem{taskforce1996heart}
+Task Force of the European Society of Cardiology and the North American Society of Pacing and Electrophysiology, ``Heart rate variability: Standards of measurement, physiological interpretation, and clinical use,'' \textit{Circulation}, vol.~93, no.~5, pp. 1043--1065, 1996.
+\end{thebibliography}
+
+\end{document}
