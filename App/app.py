@@ -105,9 +105,17 @@ def load_predictor():
 @st.cache_data
 def load_dataset():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    data_path = os.path.join(base_dir, "Download", "dataset", "wesad_wrist_features.csv")
-    if os.path.exists(data_path):
-        return pd.read_csv(data_path)
+    candidate_paths = [
+        os.path.join(base_dir, "Dataset", "wesad_wrist_features.csv"),
+        os.path.join(base_dir, "dataset", "wesad_wrist_features.csv"),
+        os.path.join(base_dir, "wesad_wrist_features.csv"),
+        os.path.join("Dataset", "wesad_wrist_features.csv"),
+        os.path.join("dataset", "wesad_wrist_features.csv"),
+        os.path.join("wesad_wrist_features.csv"),
+    ]
+    for p in candidate_paths:
+        if os.path.exists(p):
+            return pd.read_csv(p)
     return None
 
 try:
