@@ -1,6 +1,0 @@
-case,subject,t_start,label,p_raw,p_cal,high_motion,accepted
-Đúng & tin cậy – Stress,S10,2345,1,0.9819422364234924,0.9300715128580729,False,True
-Đúng & tin cậy – Non-Stress,S7,515,0,0.0017559160478413105,0.014925373097260794,False,True
-Bị từ chối (Uncertain),S12,2060,1,0.7865199446678162,0.4997665782769521,True,False
-Báo động giả khi vận động,S2,345,0,0.9931782484054565,0.9487179517745972,True,True
-Sai nhưng tự tin,S2,795,0,0.9963357448577881,0.9797979791959127,False,True
