@@ -11,6 +11,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import matplotlib.pyplot as plt
 
 # Cấu hình trang Streamlit
@@ -353,79 +354,148 @@ with tab_watch:
 
     with col_screen:
         st.markdown("##### ⌚ Giao Diện Đồng Hồ Thông Minh (OLED Display)")
-        smartwatch_html = f"""
-        <div style="
-            width: 310px;
-            height: 385px;
-            background: radial-gradient(circle at 30% 20%, #1e272e, #050505);
-            border: 10px solid #2f3640;
-            border-radius: 54px;
-            margin: 15px auto;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.2);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 18px 20px;
-            color: #ecf0f1;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            position: relative;
-        ">
-            <!-- Digital Crown Mockup -->
-            <div style="position: absolute; right: -18px; top: 120px; width: 8px; height: 42px; background: #718093; border-radius: 4px;"></div>
-            
-            <!-- Top Status Bar -->
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: #95a5a6; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 5px;">
-                <span>🟢 BLE 5.0 LIVE</span>
-                <span>Empatica E4</span>
-                <span>🔋 88%</span>
+        smartwatch_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body {{
+        margin: 0;
+        padding: 5px 0;
+        background-color: transparent;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }}
+    .watch-bezel {{
+        width: 300px;
+        height: 385px;
+        background: radial-gradient(circle at 30% 20%, #2f3640, #0a0a0a);
+        border: 10px solid #1e272e;
+        border-radius: 54px;
+        box-shadow: 0 16px 35px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.25);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 18px 20px;
+        box-sizing: border-box;
+        position: relative;
+    }}
+    .digital-crown {{
+        position: absolute;
+        right: -16px;
+        top: 130px;
+        width: 8px;
+        height: 44px;
+        background: #718093;
+        border-radius: 4px;
+    }}
+    .watch-top {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.72rem;
+        color: #95a5a6;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        padding-bottom: 5px;
+    }}
+    .watch-time {{
+        text-align: center;
+        margin: 2px 0;
+    }}
+    .time-str {{
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #ffffff;
+        letter-spacing: 1px;
+    }}
+    .time-sub {{
+        font-size: 0.70rem;
+        color: #00d2d3;
+        text-transform: uppercase;
+        font-weight: 700;
+    }}
+    .metrics-grid {{
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin: 4px 0;
+    }}
+    .metric-box {{
+        background: rgba(255,255,255,0.06);
+        border-radius: 12px;
+        padding: 6px 8px;
+        text-align: center;
+        border: 1px solid rgba(255,255,255,0.08);
+    }}
+    .metric-val {{
+        font-size: 1.15rem;
+        font-weight: 800;
+    }}
+    .metric-lbl {{
+        font-size: 0.62rem;
+        color: #bdc3c7;
+        text-transform: uppercase;
+        margin-top: 2px;
+    }}
+    .badge-box {{
+        background: {badge_bg};
+        color: {badge_color};
+        border-radius: 14px;
+        padding: 9px 8px;
+        text-align: center;
+        font-weight: 800;
+        font-size: 0.82rem;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }}
+    .badge-sub {{
+        font-size: 0.68rem;
+        font-weight: 500;
+        opacity: 0.95;
+        margin-top: 2px;
+    }}
+</style>
+</head>
+<body>
+    <div class="watch-bezel">
+        <div class="digital-crown"></div>
+        <div class="watch-top">
+            <span>🟢 BLE 5.0 LIVE</span>
+            <span>Empatica E4</span>
+            <span>🔋 88%</span>
+        </div>
+        <div class="watch-time">
+            <div class="time-str">{w_time_str}</div>
+            <div class="time-sub">AMBULATORY MONITORING</div>
+        </div>
+        <div class="metrics-grid">
+            <div class="metric-box">
+                <div class="metric-val" style="color: #ff6b6b;">❤️ {w_hr:.0f}</div>
+                <div class="metric-lbl">HEART RATE (BPM)</div>
             </div>
-            
-            <!-- Watch Clock -->
-            <div style="text-align: center; margin: 2px 0;">
-                <div style="font-size: 1.75rem; font-weight: 800; color: #ffffff; letter-spacing: 1px;">{w_time_str}</div>
-                <div style="font-size: 0.72rem; color: #00d2d3; text-transform: uppercase; font-weight: 600;">AMBULATORY MONITORING</div>
+            <div class="metric-box">
+                <div class="metric-val" style="color: #48dbfb;">💧 {w_eda:.2f}</div>
+                <div class="metric-lbl">EDA CONDUCT (μS)</div>
             </div>
-            
-            <!-- 4 Sensor Metrics Grid -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0;">
-                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 6px 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="font-size: 1.15rem; font-weight: 800; color: #ff6b6b;">❤️ {w_hr:.0f}</div>
-                    <div style="font-size: 0.65rem; color: #bdc3c7;">HEART RATE (BPM)</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 6px 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="font-size: 1.15rem; font-weight: 800; color: #48dbfb;">💧 {w_eda:.2f}</div>
-                    <div style="font-size: 0.65rem; color: #bdc3c7;">EDA CONDUCT (μS)</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 6px 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="font-size: 1.15rem; font-weight: 800; color: {'#feca57' if is_motion else '#1dd1a1'};">🏃 {w_acc_var:.1f}</div>
-                    <div style="font-size: 0.65rem; color: #bdc3c7;">MOTION VAR {'(CAO)' if is_motion else '(TĨNH)'}</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 6px 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="font-size: 1.15rem; font-weight: 800; color: #ff9ff3;">🌡️ {w_temp:.1f}°C</div>
-                    <div style="font-size: 0.65rem; color: #bdc3c7;">SKIN TEMP</div>
-                </div>
+            <div class="metric-box">
+                <div class="metric-val" style="color: {'#feca57' if is_motion else '#1dd1a1'};">🏃 {w_acc_var:.1f}</div>
+                <div class="metric-lbl">MOTION VAR {'(CAO)' if is_motion else '(TĨNH)'}</div>
             </div>
-            
-            <!-- Bottom Watch Alert Notification -->
-            <div style="
-                background: {badge_bg};
-                color: {badge_color};
-                border-radius: 14px;
-                padding: 9px 8px;
-                text-align: center;
-                font-weight: 800;
-                font-size: 0.82rem;
-                letter-spacing: 0.5px;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            ">
-                {watch_badge}
-                <div style="font-size: 0.68rem; font-weight: 500; opacity: 0.95; margin-top: 2px;">
-                    {watch_state}
-                </div>
+            <div class="metric-box">
+                <div class="metric-val" style="color: #ff9ff3;">🌡️ {w_temp:.1f}°C</div>
+                <div class="metric-lbl">SKIN TEMP</div>
             </div>
         </div>
-        """
-        st.markdown(smartwatch_html, unsafe_allow_html=True)
+        <div class="badge-box">
+            <div>{watch_badge}</div>
+            <div class="badge-sub">{watch_state}</div>
+        </div>
+    </div>
+</body>
+</html>"""
+        components.html(smartwatch_html, height=415)
         st.caption("<div style='text-align: center;'>Giao diện hiển thị thời gian thực giả lập trên đồng hồ đeo tay Empatica E4</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
