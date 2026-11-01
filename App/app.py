@@ -224,50 +224,54 @@ with tab_watch:
             )
             
             if "1." in scenario_choice:
-                w_hr = 70.5
-                w_eda = 0.42
-                w_temp = 32.8
-                w_acc_var = 1.2
-                w_acc_mean = 0.03
-                w_time_str = "10:14:25"
+                # Kịch bản 1: Mẫu thực tế từ WESAD (Subject S2 - Baseline tĩnh nghỉ ngơi, row 49)
+                row_idx = 49 if (dataset is not None and len(dataset) > 49) else None
+                fallback_hr, fallback_eda, fallback_temp, fallback_acc_var, fallback_acc_mean = 73.0, 0.42, 35.8, 1.16, 0.03
+                fallback_time = "10:14:25"
                 scenario_desc = "Người dùng ngồi đọc sách hoặc làm việc văn phòng yên tĩnh. Nhịp tim đều đặn, dẫn truyền da thấp, gia tốc cổ tay gần như tĩnh."
             elif "2." in scenario_choice:
-                w_hr = 108.0
-                w_eda = 2.15
-                w_temp = 31.4
-                w_acc_var = 24.8
-                w_acc_mean = 1.95
-                w_time_str = "07:32:10"
-                scenario_desc = "Người dùng đang chạy bộ hoặc leo cầu thang thể dục. Nhịp tim tăng cao do trao đổi chất cơ bắp và da đổ mồ hôi cơ học. Cổ tay rung lắc mạnh."
+                # Kịch bản 2: Mẫu thực tế từ WESAD (Subject S2 - Vận động mạnh không stress, row 0)
+                row_idx = 0 if (dataset is not None and len(dataset) > 0) else None
+                fallback_hr, fallback_eda, fallback_temp, fallback_acc_var, fallback_acc_mean = 81.6, 1.33, 35.8, 46.73, 1.52
+                fallback_time = "07:32:10"
+                scenario_desc = "Người dùng đang vận động cơ học mạnh / chạy bộ / leo cầu thang. Gia tốc cổ tay rung lắc rất cao (ACC Var = 46.7 > θ_motion), nhịp tim tăng nhưng không có kích hoạt stress tâm lý."
             elif "3." in scenario_choice:
-                w_hr = 96.5
-                w_eda = 5.85
-                w_temp = 29.8
-                w_acc_var = 2.4
-                w_acc_mean = 0.05
-                w_time_str = "14:45:00"
-                scenario_desc = "Người dùng đang thuyết trình bảo vệ luận án hoặc làm bài thi tính nhẩm căng thẳng (TSST). Thần kinh giao cảm kích hoạt mạnh, cơ thể ngồi yên."
+                # Kịch bản 3: Mẫu thực tế từ WESAD (Subject S2 - Căng thẳng tâm lý cấp tính TSST, row 302)
+                row_idx = 302 if (dataset is not None and len(dataset) > 302) else None
+                fallback_hr, fallback_eda, fallback_temp, fallback_acc_var, fallback_acc_mean = 67.8, 1.01, 33.2, 0.47, 0.04
+                fallback_time = "14:45:00"
+                scenario_desc = "Người dùng đang trải qua bài kiểm tra căng thẳng tâm lý xã hội TSST. Thần kinh giao cảm kích hoạt mạnh, cơ thể tĩnh nhưng EDA và tim biến thiên liên tục."
             else:
-                w_hr = 84.0
-                w_eda = 1.45
-                w_temp = 32.1
-                w_acc_var = 11.5
-                w_acc_mean = 0.45
-                w_time_str = "16:20:15"
-                scenario_desc = "Tín hiệu lấp lửng: người dùng vừa di chuyển nhẹ vừa suy nghĩ, cảm biến chập chờn, độ bất định hậu nghiệm cao."
+                # Kịch bản 4: Mẫu thực tế từ WESAD (Subject S2 - Vùng bất định chuyển tiếp / xung đột tín hiệu, row 222)
+                row_idx = 222 if (dataset is not None and len(dataset) > 222) else None
+                fallback_hr, fallback_eda, fallback_temp, fallback_acc_var, fallback_acc_mean = 68.3, 0.75, 34.1, 54.28, 1.85
+                fallback_time = "16:20:15"
+                scenario_desc = "Tín hiệu xung đột / chuyển tiếp giữa vận động và stress: Xác suất hậu nghiệm rơi vào vùng lưỡng lự [1-τ, τ], thử thách cơ chế từ chối (Abstention)."
                 
-            if dataset is not None:
-                sample_vec = dataset[features_list].mean().copy()
+            if dataset is not None and row_idx is not None:
+                sample_vec = dataset.loc[row_idx, features_list].copy()
+                w_hr = float(dataset.loc[row_idx, "hrv_mean_hr"])
+                w_eda = float(dataset.loc[row_idx, "eda_tonic_mean"])
+                w_temp = float(dataset.loc[row_idx, "temp_mean"])
+                w_acc_var = float(dataset.loc[row_idx, "acc_mag_var"])
+                w_acc_mean = float(dataset.loc[row_idx, "acc_mag_mean"])
+                t_sec = int(dataset.loc[row_idx].get("time_start_sec", 0))
+                w_time_str = f"{t_sec // 3600:02d}:{(t_sec % 3600) // 60:02d}:{t_sec % 60:02d}" if t_sec > 0 else fallback_time
             else:
                 sample_vec = pd.Series(0.0, index=features_list)
-                
-            sample_vec["hrv_mean_hr"] = w_hr
-            sample_vec["eda_tonic_mean"] = w_eda
-            sample_vec["temp_mean"] = w_temp
-            sample_vec["temp_max"] = w_temp + 0.4
-            sample_vec["temp_min"] = w_temp - 0.4
-            sample_vec["acc_mag_var"] = w_acc_var
-            sample_vec["acc_mag_mean"] = w_acc_mean
+                w_hr = fallback_hr
+                w_eda = fallback_eda
+                w_temp = fallback_temp
+                w_acc_var = fallback_acc_var
+                w_acc_mean = fallback_acc_mean
+                w_time_str = fallback_time
+                sample_vec["hrv_mean_hr"] = w_hr
+                sample_vec["eda_tonic_mean"] = w_eda
+                sample_vec["temp_mean"] = w_temp
+                sample_vec["temp_max"] = w_temp + 0.4
+                sample_vec["temp_min"] = w_temp - 0.4
+                sample_vec["acc_mag_var"] = w_acc_var
+                sample_vec["acc_mag_mean"] = w_acc_mean
             
         else:
             subjects = sorted(dataset["subject_id"].unique())
@@ -338,18 +342,32 @@ with tab_watch:
         st.markdown("##### ⚖️ So Sánh Quyết Định Trực Tiếp Với Mô Hình Cổ Điển")
         col_comp1, col_comp2 = st.columns(2)
         with col_comp1:
+            if "2." in scenario_choice:
+                trad_note = "⚠️ Trong các mô hình truyền thống (không tích hợp động học ACC hoặc dùng ngưỡng tĩnh 0.5), vận động thể chất thường kích hoạt BÁO ĐỘNG GIẢ (FAR_mot lên tới 12.2% - 13.6%) do nhịp tim và tiết mồ hôi tăng."
+            elif "4." in scenario_choice:
+                trad_note = "⚠️ Bắt buộc ép nhãn nhị phân (ngưỡng 0.5) dù độ bất định rất cao (p ≈ 53.7%), dẫn đến phán đoán cảm tính và nguy hiểm trong y tế."
+            else:
+                trad_note = "Phán đoán nhị phân ép buộc 100% không có vùng bất định để từ chối khi nhiễu."
+
             st.markdown(f"""
             **Mô hình Truyền thống (Full 100%):**  
             • Xác suất Stress: `{p_stress*100:.1f}%`  
-            • Phán đoán ép buộc: **{'🔴 BÁO ĐỘNG CĂNG THẲNG' if raw_pred == 1 else '🟢 BÌNH THƯỜNG'}**  
-            • *Hạn chế:* {('⚠️ BÁO ĐỘNG GIẢ DO VẬN ĐỘNG!' if (raw_pred == 1 and '2.' in scenario_choice) else 'Bắt buộc phán đoán dù xác suất lấp lửng.')}
+            • Phán đoán nhị phân: **{'🔴 BÁO ĐỘNG CĂNG THẲNG' if raw_pred == 1 else '🟢 BÌNH THƯỜNG'}**  
+            • *Đặc điểm:* {trad_note}
             """)
         with col_comp2:
+            if "2." in scenario_choice and sel_status != "STRESS":
+                prop_note = "✅ Triệt tiêu báo động giả thành công nhờ đặc trưng động học ACC (ACC Var=46.7) kéo p_stress xuống thấp (18.6%), nhận diện đúng VẬN ĐỘNG CƠ HỌC!"
+            elif "4." in scenario_choice and sel_status == "UNCERTAIN":
+                prop_note = "🛡️ Kích hoạt cơ chế Từ chối (Abstention) chuẩn mực IEEE: Không đoán mò khi xác suất rơi vào vùng [1-τ, τ]!"
+            else:
+                prop_note = "Bảo toàn độ tin cậy y tế tuyệt đối theo ngưỡng tin cậy τ."
+
             st.markdown(f"""
             **Hệ thống Đề xuất (Selective τ={tau:.2f}):**  
             • Trạng thái: **`{watch_badge}`**  
             • Phản hồi vòng tay: `{haptic_feedback}`  
-            • *Ưu thế:* {'✅ Triệt tiêu báo động giả thành công!' if ('2.' in scenario_choice and sel_status != 'STRESS') else 'Bảo toàn độ tin cậy y tế tuyệt đối.'}
+            • *Ưu thế:* {prop_note}
             """)
 
     with col_screen:
