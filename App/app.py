@@ -178,11 +178,255 @@ st.sidebar.info("""
 st.markdown('<div class="main-title">🩺 Hệ Thống Nhận Diện Căng Thẳng Đáng Tin Cậy (Trustworthy Stress AI)</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">Ứng dụng Giám sát Sinh lý Thời gian thực từ Thiết bị Đeo Cổ tay Empatica E4 với Cơ chế Triệt tiêu Báo động Giả khi Vận động</div>', unsafe_allow_html=True)
 
-tab_demo, tab_batch, tab_benchmark = st.tabs([
+tab_watch, tab_demo, tab_batch, tab_benchmark = st.tabs([
+    "⌚ Thiết Bị Đeo Cổ Tay Ảo (Digital Twin Wearable)",
     "🔬 Thử Nghiệm Cửa Sổ Đơn Lẻ (Single Window Inference)",
     "📂 Duyệt Theo Đối Tượng & Kịch Bản WESAD",
     "📈 Báo Cáo Benchmark Đa Mô Hình (8 Models)"
 ])
+
+# -------------------------------------------------------------
+# TAB 0: MÔ PHỎNG THIẾT BỊ ĐEO CỔ TAY (WEARABLE DIGITAL TWIN)
+# -------------------------------------------------------------
+with tab_watch:
+    st.markdown("#### ⌚ Thiết Bị Đeo Cổ Tay Empatica E4 Ảo (Real-Time Digital Twin)")
+    st.markdown("""
+    Trang này đóng vai trò là **Mô hình Bản sao Kỹ thuật số (Digital Twin)** của thiết bị đeo cổ tay y tế Empatica E4. 
+    Hệ thống mô phỏng dòng dữ liệu Telemetry truyền qua Bluetooth BLE theo từng cửa sổ trượt 60 giây (bước nhảy 5s), giúp Thầy/Cô trực quan hóa phản hồi tức thời ngay trên màn hình đồng hồ đeo tay.
+    """)
+    
+    col_ctrl, col_screen = st.columns([1.1, 1.0])
+    
+    with col_ctrl:
+        st.markdown("##### 🎛️ Bảng Điều Khiển Dòng Tín Hiệu Telemetry")
+        
+        sim_source = st.radio(
+            "Nguồn dữ liệu mô phỏng:",
+            [
+                "🎯 4 Kịch Bản Lâm Sàng Mẫu (Khuyến nghị demo cho Thầy)",
+                "📂 Tua Dòng Dữ Liệu Thực của Bệnh Nhân (WESAD Stream Replay)"
+            ],
+            index=0
+        )
+        
+        scenario_choice = ""
+        if sim_source == "🎯 4 Kịch Bản Lâm Sàng Mẫu (Khuyến nghị demo cho Thầy)" or dataset is None:
+            scenario_choice = st.selectbox(
+                "Chọn Tình huống Sinh hoạt của Người đeo:",
+                [
+                    "1. Thư giãn / Nghỉ ngơi tĩnh (Sedentary Baseline) - Trạng thái bình thường",
+                    "2. Vận động mạnh không Stress (Chạy bộ / Leo cầu thang - Thử thách Báo động giả)",
+                    "3. Căng thẳng tâm lý thật (Trier Social Stress Test - Căng thẳng cấp tính)",
+                    "4. Tín hiệu xung đột / Lấp lửng (Conflicting Signals - Thử thách Bất định)"
+                ],
+                index=1
+            )
+            
+            if "1." in scenario_choice:
+                w_hr = 70.5
+                w_eda = 0.42
+                w_temp = 32.8
+                w_acc_var = 1.2
+                w_acc_mean = 0.03
+                w_time_str = "10:14:25"
+                scenario_desc = "Người dùng ngồi đọc sách hoặc làm việc văn phòng yên tĩnh. Nhịp tim đều đặn, dẫn truyền da thấp, gia tốc cổ tay gần như tĩnh."
+            elif "2." in scenario_choice:
+                w_hr = 108.0
+                w_eda = 2.15
+                w_temp = 31.4
+                w_acc_var = 24.8
+                w_acc_mean = 1.95
+                w_time_str = "07:32:10"
+                scenario_desc = "Người dùng đang chạy bộ hoặc leo cầu thang thể dục. Nhịp tim tăng cao do trao đổi chất cơ bắp và da đổ mồ hôi cơ học. Cổ tay rung lắc mạnh."
+            elif "3." in scenario_choice:
+                w_hr = 96.5
+                w_eda = 5.85
+                w_temp = 29.8
+                w_acc_var = 2.4
+                w_acc_mean = 0.05
+                w_time_str = "14:45:00"
+                scenario_desc = "Người dùng đang thuyết trình bảo vệ luận án hoặc làm bài thi tính nhẩm căng thẳng (TSST). Thần kinh giao cảm kích hoạt mạnh, cơ thể ngồi yên."
+            else:
+                w_hr = 84.0
+                w_eda = 1.45
+                w_temp = 32.1
+                w_acc_var = 11.5
+                w_acc_mean = 0.45
+                w_time_str = "16:20:15"
+                scenario_desc = "Tín hiệu lấp lửng: người dùng vừa di chuyển nhẹ vừa suy nghĩ, cảm biến chập chờn, độ bất định hậu nghiệm cao."
+                
+            if dataset is not None:
+                sample_vec = dataset[features_list].mean().copy()
+            else:
+                sample_vec = pd.Series(0.0, index=features_list)
+                
+            sample_vec["hrv_mean_hr"] = w_hr
+            sample_vec["eda_tonic_mean"] = w_eda
+            sample_vec["temp_mean"] = w_temp
+            sample_vec["temp_max"] = w_temp + 0.4
+            sample_vec["temp_min"] = w_temp - 0.4
+            sample_vec["acc_mag_var"] = w_acc_var
+            sample_vec["acc_mag_mean"] = w_acc_mean
+            
+        else:
+            subjects = sorted(dataset["subject_id"].unique())
+            replay_sub = st.selectbox("Chọn Đối tượng Bệnh nhân (WESAD Subject):", subjects, index=1)
+            sub_stream = dataset[dataset["subject_id"] == replay_sub].reset_index(drop=True)
+            
+            window_idx = st.slider(
+                "Tua Dòng Thời Gian (Window Index / Cửa sổ 60s):",
+                min_value=0,
+                max_value=len(sub_stream) - 1,
+                value=min(45, len(sub_stream) - 1),
+                help="Kéo thanh trượt để di chuyển qua từng thời điểm trong phiên đo của bệnh nhân."
+            )
+            
+            row_curr = sub_stream.iloc[window_idx]
+            sample_vec = row_curr[features_list].copy()
+            w_hr = row_curr.get("hrv_mean_hr", 75.0)
+            w_eda = row_curr.get("eda_tonic_mean", 1.0)
+            w_temp = row_curr.get("temp_mean", 32.5)
+            w_acc_var = row_curr.get("acc_mag_var", 2.0)
+            w_acc_mean = row_curr.get("acc_mag_mean", 0.05)
+            t_sec = int(row_curr.get("time_start_sec", window_idx * 5))
+            w_time_str = f"{t_sec // 3600:02d}:{(t_sec % 3600) // 60:02d}:{t_sec % 60:02d}"
+            lbl_true = int(row_curr.get("label", 0))
+            scenario_desc = f"Đối tượng {replay_sub} - Cửa sổ thứ {window_idx+1}/{len(sub_stream)}. Nhãn thực tế: " + ("🔴 CĂNG THẲNG THẬT (TSST)" if lbl_true == 1 else "🟢 BÌNH THƯỜNG")
+
+        st.info(f"**Bối cảnh:** {scenario_desc}")
+        
+        # Chạy suy luận
+        feat_vals = sample_vec.values.reshape(1, -1)
+        feat_scaled = scaler.transform(feat_vals)
+        p_stress = active_model.predict_proba(feat_scaled)[0, 1]
+        
+        # Quyết định chọn lọc
+        is_motion = w_acc_var >= theta_motion
+        if p_stress >= tau:
+            sel_status = "STRESS"
+            watch_badge = "🚨 CẢNH BÁO: CĂNG THẲNG"
+            badge_bg = "#e74c3c"
+            badge_color = "#ffffff"
+            watch_state = "Căng thẳng cấp tính vượt ngưỡng an toàn!"
+            haptic_feedback = "📳 Rung cảnh báo liên tục (Haptic Alert L2)"
+        elif (1.0 - p_stress) >= tau:
+            sel_status = "NON_STRESS"
+            if is_motion:
+                watch_badge = "🏃 ĐANG VẬN ĐỘNG CƠ HỌC"
+                badge_bg = "#2980b9"
+                badge_color = "#ffffff"
+                watch_state = "Đang chạy bộ / Di chuyển (Không Stress)"
+                haptic_feedback = "🛡️ Chặn báo động giả - Không rung chuông"
+            else:
+                watch_badge = "🌿 THƯ GIÃN / BÌNH THƯỜNG"
+                badge_bg = "#27ae60"
+                badge_color = "#ffffff"
+                watch_state = "Nhịp sinh lý ổn định, thư giãn"
+                haptic_feedback = "Thầm lặng (Silent Mode)"
+        else:
+            sel_status = "UNCERTAIN"
+            watch_badge = "⏳ ĐANG THEO DÕI THÊM"
+            badge_bg = "#f39c12"
+            badge_color = "#ffffff"
+            watch_state = "Bất định (Từ chối đoán bừa để bảo vệ bệnh nhân)"
+            haptic_feedback = "Thu thập thêm dữ liệu (Abstention Mode)"
+            
+        raw_pred = 1 if p_stress >= 0.50 else 0
+        
+        st.markdown("---")
+        st.markdown("##### ⚖️ So Sánh Quyết Định Trực Tiếp Với Mô Hình Cổ Điển")
+        col_comp1, col_comp2 = st.columns(2)
+        with col_comp1:
+            st.markdown(f"""
+            **Mô hình Truyền thống (Full 100%):**  
+            • Xác suất Stress: `{p_stress*100:.1f}%`  
+            • Phán đoán ép buộc: **{'🔴 BÁO ĐỘNG CĂNG THẲNG' if raw_pred == 1 else '🟢 BÌNH THƯỜNG'}**  
+            • *Hạn chế:* {('⚠️ BÁO ĐỘNG GIẢ DO VẬN ĐỘNG!' if (raw_pred == 1 and '2.' in scenario_choice) else 'Bắt buộc phán đoán dù xác suất lấp lửng.')}
+            """)
+        with col_comp2:
+            st.markdown(f"""
+            **Hệ thống Đề xuất (Selective τ={tau:.2f}):**  
+            • Trạng thái: **`{watch_badge}`**  
+            • Phản hồi vòng tay: `{haptic_feedback}`  
+            • *Ưu thế:* {'✅ Triệt tiêu báo động giả thành công!' if ('2.' in scenario_choice and sel_status != 'STRESS') else 'Bảo toàn độ tin cậy y tế tuyệt đối.'}
+            """)
+
+    with col_screen:
+        st.markdown("##### ⌚ Giao Diện Đồng Hồ Thông Minh (OLED Display)")
+        smartwatch_html = f"""
+        <div style="
+            width: 310px;
+            height: 385px;
+            background: radial-gradient(circle at 30% 20%, #1e272e, #050505);
+            border: 10px solid #2f3640;
+            border-radius: 54px;
+            margin: 15px auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 18px 20px;
+            color: #ecf0f1;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            position: relative;
+        ">
+            <!-- Digital Crown Mockup -->
+            <div style="position: absolute; right: -18px; top: 120px; width: 8px; height: 42px; background: #718093; border-radius: 4px;"></div>
+            
+            <!-- Top Status Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: #95a5a6; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 5px;">
+                <span>🟢 BLE 5.0 LIVE</span>
+                <span>Empatica E4</span>
+                <span>🔋 88%</span>
+            </div>
+            
+            <!-- Watch Clock -->
+            <div style="text-align: center; margin: 2px 0;">
+                <div style="font-size: 1.75rem; font-weight: 800; color: #ffffff; letter-spacing: 1px;">{w_time_str}</div>
+                <div style="font-size: 0.72rem; color: #00d2d3; text-transform: uppercase; font-weight: 600;">AMBULATORY MONITORING</div>
+            </div>
+            
+            <!-- 4 Sensor Metrics Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0;">
+                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 6px 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 1.15rem; font-weight: 800; color: #ff6b6b;">❤️ {w_hr:.0f}</div>
+                    <div style="font-size: 0.65rem; color: #bdc3c7;">HEART RATE (BPM)</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 6px 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 1.15rem; font-weight: 800; color: #48dbfb;">💧 {w_eda:.2f}</div>
+                    <div style="font-size: 0.65rem; color: #bdc3c7;">EDA CONDUCT (μS)</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 6px 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 1.15rem; font-weight: 800; color: {'#feca57' if is_motion else '#1dd1a1'};">🏃 {w_acc_var:.1f}</div>
+                    <div style="font-size: 0.65rem; color: #bdc3c7;">MOTION VAR {'(CAO)' if is_motion else '(TĨNH)'}</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 6px 8px; text-align: center; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 1.15rem; font-weight: 800; color: #ff9ff3;">🌡️ {w_temp:.1f}°C</div>
+                    <div style="font-size: 0.65rem; color: #bdc3c7;">SKIN TEMP</div>
+                </div>
+            </div>
+            
+            <!-- Bottom Watch Alert Notification -->
+            <div style="
+                background: {badge_bg};
+                color: {badge_color};
+                border-radius: 14px;
+                padding: 9px 8px;
+                text-align: center;
+                font-weight: 800;
+                font-size: 0.82rem;
+                letter-spacing: 0.5px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            ">
+                {watch_badge}
+                <div style="font-size: 0.68rem; font-weight: 500; opacity: 0.95; margin-top: 2px;">
+                    {watch_state}
+                </div>
+            </div>
+        </div>
+        """
+        st.markdown(smartwatch_html, unsafe_allow_html=True)
+        st.caption("<div style='text-align: center;'>Giao diện hiển thị thời gian thực giả lập trên đồng hồ đeo tay Empatica E4</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
 # TAB 1: THỬ NGHIỆM CỬA SỔ ĐƠN LẺ
