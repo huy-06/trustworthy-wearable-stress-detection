@@ -162,7 +162,7 @@ This research project introduces an end-to-end **Trustworthy Stress Detection Fr
 Clone the repository and set up a virtual environment:
 
 ```bash
-git clone https://github.com/your-username/trustworthy-wearable-stress-detection.git
+git clone https://github.com/huy-06/trustworthy-wearable-stress-detection.git
 cd trustworthy-wearable-stress-detection
 
 # Create and activate virtual environment
