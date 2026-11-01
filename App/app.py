@@ -181,7 +181,7 @@ st.markdown('<div class="sub-title">Ứng dụng Giám sát Sinh lý Thời gian
 
 tab_watch, tab_demo, tab_batch, tab_benchmark = st.tabs([
     "⌚ Thiết Bị Đeo Cổ Tay Ảo (Digital Twin Wearable)",
-    "🔬 Thử Nghiệm Cửa Sổ Đơn Lẻ (Single Window Inference)",
+    "🔬 Đánh Giá Cửa Sổ Đơn Lẻ (Single-Window Evaluation)",
     "📂 Duyệt Theo Đối Tượng & Kịch Bản WESAD",
     "📈 Báo Cáo Benchmark Đa Mô Hình (8 Models)"
 ])
@@ -193,7 +193,7 @@ with tab_watch:
     st.markdown("#### ⌚ Thiết Bị Đeo Cổ Tay Empatica E4 Ảo (Real-Time Digital Twin)")
     st.markdown("""
     Trang này đóng vai trò là **Mô hình Bản sao Kỹ thuật số (Digital Twin)** của thiết bị đeo cổ tay y tế Empatica E4. 
-    Hệ thống mô phỏng dòng dữ liệu Telemetry truyền qua Bluetooth BLE theo từng cửa sổ trượt 60 giây (bước nhảy 5s), giúp Thầy/Cô trực quan hóa phản hồi tức thời ngay trên màn hình đồng hồ đeo tay.
+    Hệ thống mô phỏng dòng dữ liệu Telemetry truyền qua Bluetooth BLE theo từng cửa sổ trượt 60 giây (bước nhảy 5s), hỗ trợ chuyên gia y tế và nhà nghiên cứu trực quan hóa phản hồi tức thời ngay trên màn hình đồng hồ đeo tay.
     """)
     
     col_ctrl, col_screen = st.columns([1.1, 1.0])
@@ -204,14 +204,14 @@ with tab_watch:
         sim_source = st.radio(
             "Nguồn dữ liệu mô phỏng:",
             [
-                "🎯 4 Kịch Bản Lâm Sàng Mẫu (Khuyến nghị demo cho Thầy)",
+                "🎯 4 Kịch Bản Lâm Sàng Tiêu Chuẩn (Standardized Clinical Protocols)",
                 "📂 Tua Dòng Dữ Liệu Thực của Bệnh Nhân (WESAD Stream Replay)"
             ],
             index=0
         )
         
         scenario_choice = ""
-        if sim_source == "🎯 4 Kịch Bản Lâm Sàng Mẫu (Khuyến nghị demo cho Thầy)" or dataset is None:
+        if sim_source == "🎯 4 Kịch Bản Lâm Sàng Tiêu Chuẩn (Standardized Clinical Protocols)" or dataset is None:
             scenario_choice = st.selectbox(
                 "Chọn Tình huống Sinh hoạt của Người đeo:",
                 [
