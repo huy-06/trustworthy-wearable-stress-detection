@@ -1,0 +1,557 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% --- Standard IEEE Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage{cite}
+\usepackage{hyperref}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Selective Classification and Probability Calibration for Trustworthy Stress Detection from Wrist-Worn Physiological Signals}
+
+\author{
+    \IEEEauthorblockN{Phan Tuan Dat, Nguyen Gia Huy, Tran Loi Kieu Nhi, Nguyen Minh Bao}
+    \IEEEauthorblockA{\textit{Department of Artificial Intelligence}, \textit{FPT University} \\
+    Email: ptundatwork@gmail.com, huy522006@gmail.com, nhiklt2006@gmail.com, baonguyenminh17@gmail.com}
+}
+
+\maketitle
+
+% =========================================================================
+% ABSTRACT (< 250 words)
+% =========================================================================
+\begin{abstract}
+Wrist-worn continuous stress monitoring systems offer a non-invasive tool for proactive health management. However, photoplethysmography (BVP) and electrodermal activity (EDA) sensors at the wrist are susceptible to movement artifacts. Routine arm gestures, postural shifts, and sensor displacement introduce signal distortions that closely resemble sympathetic stress activation. Classifiers forced to predict on 100\% of temporal windows (Full Coverage) produce elevated false alarms during movement, contributing to clinical alarm fatigue. In this paper, we propose a reliable stress monitoring framework integrating Isotonic probability calibration with confidence-based selective classification on the benchmark WESAD dataset ($N=15$). The framework withholds decisions (assigning an \textit{Uncertain} label) when posterior confidence falls below threshold $\tau = 0.80$. Across eight architectures (seven tabular classifiers and a multi-layer perceptron) under 15-fold Leave-One-Subject-Out (LOSO) cross-validation with inner subject-grouped calibration, movement-induced false alarm vulnerability ($\text{FAR}_{\text{motion}} \approx 12.2\% - 24.0\%$) is systematically documented under forced prediction. Selective classification suppresses between 55.0\% and 90.0\% of these false alarms, improving Macro $F_1$ by +3.6 to +8.2 percentage points on retained data. Calibrated XGBoost achieves a pooled Selective Macro $F_1$ of \textbf{95.20\%} (per-subject mean: $89.8\% \pm 17.6\%$) and pooled Stress $F_1$ of \textbf{93.15\%} (per-subject mean: $83.1\% \pm 32.6\%$), reducing Expected Calibration Error (ECE) to \textbf{0.0290} on retained predictions while maintaining $69.42\%$ operational coverage (per-subject mean: $69.6\% \pm 22.2\%$). Benchmarks against mechanical gating and random abstention, coupled with TreeSHAP attributions, validate the decision framework.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Wearable Stress Detection, WESAD Dataset, Selective Classification, Probability Calibration, Empatica E4, Motion-Induced False Alarms, Trustworthy AI, Leave-One-Subject-Out Evaluation.
+\end{IEEEkeywords}
+
+% =========================================================================
+% I. INTRODUCTION
+% =========================================================================
+\section{Introduction}
+Prolonged psychological stress is a recognized risk factor for immune dysfunction, metabolic disorders, and cardiovascular complications \cite{cohen2007psychological, schneiderman2005stress, can2019stress}. Consumer smartbands and smartwatches enable continuous, non-invasive tracking of physiological parameters in ambulatory settings \cite{gjoreski2016continuous, schmidt2018wesad, sano2015recognizing}.
+
+However, continuous wrist-based monitoring encounters a persistent challenge: \textit{motion-induced false alarms} \cite{schumm2008effect, tamura2014wearable, zhang2014troika}. Arm articulations, gestures, and sensor displacement distort optical blood volume pulse (BVP) waveforms and alter skin-electrode contact geometry \cite{boucsein2012electrodermal}. Under ambulatory conditions, these motion-corrupted signals frequently mimic sympathetic nervous system (SNS) arousal.
+
+In existing studies on the standard WESAD benchmark \cite{schmidt2018wesad, siirtola2019continuous, bobade2020stress, dalmeida2021hrv, behinaein2021transformer, castaldo2015acute}, classifiers are typically evaluated under forced prediction requiring binary classifications ($\text{Stress}$ vs. $\text{Non-Stress}$) on 100\% of temporal windows (Full Coverage). During active arm movements and postural adjustments, classifiers frequently output overconfident erroneous predictions \cite{guo2017calibration}. The resulting high frequency of spurious alerts leads directly to clinical alarm fatigue \cite{sendelbach2013alarm}, prompting users to ignore warnings or abandon wearable monitoring.
+
+To address this challenge, our work applies the principles of \textbf{Trustworthy Machine Learning}: rather than forcing predictions on all inputs, an ambulatory monitoring system should quantify predictive uncertainty and withhold decisions on ambiguous or motion-corrupted samples through selective classification \cite{chow1970optimum, cortes2016learning, geifman2017selective, geifman2019selectivenet, grandvalet2008support, hendrickx2024machine}.
+
+\subsection{Research Questions (RQs)}
+This study addresses four central research questions:
+\begin{itemize}
+    \item \textbf{RQ1 (Cross-Architecture Motion Vulnerability):} Does motion-induced false alarm vulnerability persist across diverse machine learning architectures under mandatory 100\% full coverage?
+    \item \textbf{RQ2 (Reliability under Selective Classification):} Can probability calibration combined with selective abstention reliably suppress motion false alarms while preserving usable operational coverage?
+    \item \textbf{RQ3 (Tabular Tree Ensembles vs. Deep Neural Networks):} How do tree-based ensembles compare against deep neural networks (MLP) on standardized physiological features under subject-independent cross-validation?
+    \item \textbf{RQ4 (Feature Dynamics, Kinematic Context, and Outlier Generalization):} What physiological and kinematic feature dynamics govern model abstention, and how does the framework behave on atypical responders?
+\end{itemize}
+
+\subsection{Scientific Contributions}
+This paper presents four main contributions:
+\begin{enumerate}
+    \item \textbf{Formalization and Quantification of Motion Vulnerability ($\text{FAR}_{\text{motion}}$):} We define the $\text{FAR}_{\text{motion}}$ metric over high-motion non-stress intervals ($N=295$ windows) and benchmark eight distinct algorithms (seven tabular models and a multi-layer perceptron) under 15-fold Leave-One-Subject-Out (LOSO) cross-validation \cite{saeb2017need, little2017using}. We show that motion false alarm vulnerability affects all model families ($\text{FAR}_{\text{motion}} \approx 12.2\% - 24.0\%$) under forced prediction.
+    \item \textbf{Dual-level Group-aware Calibration Pipeline:} We design an Isotonic probability calibration protocol nested inside an inner subject-stratified cross-validation (\texttt{GroupKFold}, 3 inner folds). This structure prevents optimistic bias from 91.7\% sliding-window overlap, yielding well-calibrated confidence estimates ($\text{ECE} = 0.0290$ on retained predictions).
+    \item \textbf{Selective Decision Framework with Kinematic Context Integration:} We formulate an abstention rule based on confidence threshold $\tau = 0.80$ integrating tri-axial accelerometry (ACC) features. The framework reduces motion-induced false alarms by 55.0\% to 90.0\% across all eight evaluated models, enabling calibrated XGBoost to reach a Selective Macro $F_1$ of 95.20\% at 69.42\% coverage, validated by multi-seed tests (5 seeds).
+    \item \textbf{Biomedical XAI Attribution and Tabular-vs-Deep Empirical Analysis:} Using TreeSHAP \cite{lundberg2020local}, we quantify the relative contributions of four sensor modalities and identify conflicting feature patterns that trigger model abstention. We provide an empirical comparison between tree ensembles and neural models on the same feature space, analyzing an outlier participant with muted electrodermal response (Subject S14).
+\end{enumerate}
+
+% =========================================================================
+% II. RELATED WORK & RESEARCH GAP ANALYSIS
+% =========================================================================
+\section{Related Work \& Research Gap Analysis}
+
+\subsection{Wrist-Based Wearable Stress Detection}
+Early ambulatory stress monitoring focused primarily on chest-worn straps or multi-lead electrocardiography (ECG) \cite{taskforce1996heart}. With the introduction of multi-sensor wrist instruments such as the Empatica E3 and E4 \cite{garbarino2014empatica}, recent studies have emphasized optical BVP, EDA, skin temperature (TEMP), and tri-axial accelerometry (ACC) \cite{can2019stress, gjoreski2016continuous}.
+
+Schmidt et al. \cite{schmidt2018wesad} established the WESAD benchmark ($N=15$), capturing synchronized chest and wrist data. For wrist-based binary classification under 15-fold LOSO, their baseline using Random Forest achieved 87.12\% accuracy ($F_1 = 84.11\%$). Bobade and Vani \cite{bobade2020stress} examined classical classifiers and deep CNN/LSTM architectures on multimodal physiological data; however, their evaluation used random K-Fold splitting, which causes temporal data leakage between overlapping windows. Siirtola \cite{siirtola2019continuous} extracted heart rate variability (HRV) metrics from wrist BVP, noting that individual physiological differences present substantial hurdles for cross-subject generalization. Sano et al. \cite{sano2015recognizing} observed that physiological heterogeneity degrades accuracy in unconstrained settings. Works by Behinaein et al. \cite{behinaein2021transformer} and Dalmeida and Masala \cite{dalmeida2021hrv} explored transformer and HRV-based architectures, though computational demands on embedded hardware remain an open constraint.
+
+\subsection{Motion Artifacts and False Alarms}
+Arm and wrist movements distort optical BVP waveforms and alter skin-electrode contact geometry \cite{tamura2014wearable, zhang2014troika, schumm2008effect}. Signal processing methods such as Butterworth filtering or adaptive cancellation attenuate high-frequency electrical and optical noise \cite{zhang2014troika}, but cannot resolve physiological ambiguity when motion artifacts overlap with stress-induced frequency bands. Consequently, when classifiers are required to predict on all windows, false alarm rates remain high during arm movements, leading to alarm fatigue \cite{sendelbach2013alarm}.
+
+\subsection{Selective Classification and Learning with Rejection}
+Originating with Chow's formulation \cite{chow1970optimum}, learning with rejection allows a classifier to withhold judgment when predictive confidence is low. Geifman and El-Yaniv \cite{geifman2017selective, geifman2019selectivenet} extended selective classification to deep neural networks, analyzing the risk-coverage trade-off. Additional theoretical work by Cortes et al. \cite{cortes2016learning}, Grandvalet et al. \cite{grandvalet2008support}, and a comprehensive survey by Hendrickx et al. \cite{hendrickx2024machine} established rejection frameworks in risk-sensitive applications. To our knowledge, selective classification has not been systematically investigated for mitigating motion false alarms in wearable stress monitoring.
+
+\subsection{Probability Calibration and Windowing Leakage}
+Effective selective classification requires well-calibrated posterior probabilities: predicted confidence should reflect empirical accuracy \cite{guo2017calibration}. Standard calibration techniques include Platt scaling (Sigmoid) \cite{platt1999probabilistic}, Beta calibration \cite{kull2017beta}, and non-parametric Isotonic regression \cite{zadrozny2002transforming, niculescu2005predicting}.
+
+In physiological time series, sliding windows (e.g., 60-second windows with 5-second shifts) introduce 91.7\% overlap between consecutive observations. Applying conventional random cross-validation allows contiguous windows from the same subject to appear in both training and calibration splits, introducing optimistic bias in calibration metrics \cite{saeb2017need, little2017using}. We address this via a two-level evaluation framework with subject-grouped inner splits.
+
+\subsection{Rationale for Tabular Machine Learning}
+Given the prevalence of deep neural networks, our focus on decision-tree ensembles (Random Forest, LightGBM, XGBoost \cite{chen2016xgboost}) is based on three considerations:
+\begin{enumerate}
+    \item \textbf{Sample Size Constraints ($N=15$ Subjects):} WESAD contains 15 participants. Studies by Shwartz-Ziv and Armon \cite{shwartzziv2022tabular}, Grinsztajn et al. \cite{grinsztajn2022why}, and Borisov et al. \cite{borisov2024deep} show that on small-to-medium tabular datasets, tree-based models frequently match or exceed deep neural networks. High-capacity neural networks can overfit subject-specific physiological baselines on small cohorts.
+    \item \textbf{Biomedical Interpretability (XAI):} Standard HRV and EDA metrics (RMSSD, LF/HF, SCR peaks) are grounded in established autonomic physiology \cite{taskforce1996heart, greco2016cvxeda, tarvainen2014kubios}. Combined with TreeSHAP \cite{lundberg2020local}, tree ensembles allow feature attribution for individual predictions and abstentions.
+    \item \textbf{Embedded Hardware Feasibility:} Commercial wrist instruments operate under strict microcontroller power budgets. Decision trees paired with Isotonic look-up tables require low memory and $O(\text{depth})$ inference complexity, facilitating on-device execution.
+\end{enumerate}
+
+To evaluate these considerations empirically, we include a Multi-Layer Perceptron (MLP) baseline trained on the same 25-feature space under identical 15-fold LOSO conditions. Table~\ref{tab:related_work_comparison} provides a comparison of recent studies with our proposed methodology.
+
+\begin{table*}[t]
+\caption{Comparison of related wearable stress detection studies and the proposed framework.}
+\label{tab:related_work_comparison}
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Study} & \textbf{Device / Placement} & \textbf{Model Family} & \textbf{Validation Scheme} & \textbf{Probability Calibration} & \textbf{Kinematic Context (ACC)} & \textbf{Rejection Option} \\
+\midrule
+Schmidt et al. (2018) \cite{schmidt2018wesad} & E4 (wrist) + RespiBAN (chest) & Random Forest (87.12\% Acc) & LOSO (15 folds) & No & Included as raw feature & None (Forced 100\%) \\
+Bobade \& Vani (2020) \cite{bobade2020stress} & E4 (wrist) + RespiBAN & SVM, KNN, CNN, LSTM & Randomized K-Fold & No & Included as raw feature & None (Forced 100\%) \\
+Siirtola (2019) \cite{siirtola2019continuous} & Smartwatch (wrist - BVP) & Random Forest, QDA & LOSO & No & Not included & None (Forced 100\%) \\
+Gjoreski et al. (2016) \cite{gjoreski2016continuous} & Wrist-worn device & Random Forest, Ensemble & In-lab \& Real-life & No & Crude activity filter & None (Forced 100\%) \\
+Can et al. (2019) \cite{can2019stress} & Multi-sensor wearable & Survey of literature & Multi-protocol & No & Survey analysis & None (Forced 100\%) \\
+Behinaein et al. (2021) \cite{behinaein2021transformer} & Wearable ECG sensor & Transformer, Deep Learning & LOSO & No & Not included & None (Forced 100\%) \\
+\midrule
+\textbf{Proposed Study} & \textbf{Empatica E4 (wrist)} & \textbf{8 Models (7 Tabular + MLP)} & \textbf{Dual-level LOSO 15-folds} & \textbf{Yes (Inner GroupKFold Isotonic)} & \textbf{Integrated 6 ACC Features} & \textbf{Yes (Selective Rule $\tau = 0.80$)} \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+% =========================================================================
+% III. PROPOSED METHODOLOGY
+% =========================================================================
+\section{Proposed Methodology}
+
+\subsection{Preprocessing and Feature Extraction}
+Continuous recordings from the Empatica E4 wristband are partitioned into rolling windows of $W = 60$\,s with step size $\Delta t = 5$\,s (91.7\% overlap). While standard Task Force guidelines recommend 5 minutes for conventional short-term HRV \cite{taskforce1996heart}, 60-second windows fall under ultra-short-term HRV (UST-HRV), where time-domain metrics (Mean HR, RMSSD) remain robust while frequency-domain metrics (LF, LF/HF) should be interpreted cautiously \cite{castaldo2015acute}:
+\begin{itemize}
+    \item \textbf{BVP Signal (64\,Hz):} Filtered via a 2nd-order Butterworth bandpass filter (0.5--8.0\,Hz) to reduce baseline wander. Systolic peaks are identified to compute the inter-beat interval (IBI) sequence. Spurious intervals outside 300--1800\,ms are removed, and the resulting series is resampled to 4\,Hz via cubic spline interpolation \cite{tarvainen2014kubios}. Extracted metrics include time-domain indicators (Mean HR, SDNN, RMSSD, pNN50) and frequency-domain components via Welch's method: low-frequency power LF (0.04--0.15\,Hz), high-frequency power HF (0.15--0.40\,Hz), and the sympathovagal balance ratio LF/HF.
+    \item \textbf{EDA Signal (4\,Hz):} Decomposed using cvxEDA \cite{greco2016cvxeda} into tonic skin conductance levels (SCL) and phasic skin conductance responses (SCR). Features include SCR peak count, maximum peak amplitude, mean and variance of both tonic and phasic components, and phasic energy $\sum \text{Phasic}^2$ \cite{boucsein2012electrodermal}.
+    \item \textbf{TEMP Signal (4\,Hz):} Peripheral skin temperature tracks vasoconstriction. Extracted features include mean, standard deviation, extrema, and linear regression slope.
+    \item \textbf{ACC Signal (32\,Hz):} Tri-axial acceleration values from the onboard ADXL362 sensor are sampled in units of $1/64\,g$. We compute Euclidean magnitude $a(t) = \sqrt{a_x^2(t) + a_y^2(t) + a_z^2(t)}$. Features include 6 metrics: magnitude mean, magnitude standard deviation, variance $\text{Var}(\text{ACC})$ (in raw units $(1/64\,g)^2$, serving as a proxy for movement intensity), maximum peak value, zero-crossing rate (ZCR), and spectral energy.
+\end{itemize}
+
+The final dataset comprises 5,294 observation windows across all 15 valid participants from WESAD ($S2, S3, \dots, S17$; noting that $S1$ and $S12$ were excluded by the dataset creators due to sensor malfunction \cite{schmidt2018wesad}). The standardized feature space consists of 25 continuous features.
+
+\subsection{Probability Calibration}
+Let $x \in \mathbb{R}^d$ represent the feature vector and $y \in \{0, 1\}$ denote the binary ground truth (0: Non-Stress, 1: Stress). The raw model score $f(x)$ is converted to a calibrated probability via monotonic Isotonic regression \cite{zadrozny2002transforming, niculescu2005predicting}:
+\begin{equation}
+\hat{P}(Y=1|x) = g(f(x))
+\end{equation}
+where $g(\cdot)$ minimizes square loss subject to monotonicity constraints:
+\begin{equation}
+\begin{aligned}
+\min_{g} \ & \sum_{i=1}^{N_{\text{cal}}} \left( y_i - g(f(x_i)) \right)^2 \\
+\text{s.t.} \ & g(f(x_i)) \le g(f(x_j)) \quad \forall \ f(x_i) \le f(x_j)
+\end{aligned}
+\end{equation}
+
+\subsection{Selective Decision Rule}
+Let $\hat{p}_1 = \hat{P}(Y=1|x)$. We define an operational decision rule governing classifier abstention based on confidence threshold $\tau \in [0.5, 1.0)$:
+\begin{equation}
+\hat{y}(x) =
+\begin{cases}
+1 \ (\text{Stress}), & \text{if } \hat{p}_1 \ge \tau \\
+0 \ (\text{Non-Stress}), & \text{if } \hat{p}_1 \le 1 - \tau \\
+\text{Abstain}, & \text{if } 1 - \tau < \hat{p}_1 < \tau
+\end{cases}
+\end{equation}
+When the posterior probability falls into the ambiguity interval $(1-\tau, \tau)$, the model withholds classification. This selectively eliminates borderline predictions that disproportionately cause false alarms during physical movement.
+
+% =========================================================================
+% IV. EXPERIMENTAL SETUP
+% =========================================================================
+\section{Experimental Setup}
+
+\subsection{Dual-Level LOSO Cross-Validation}
+To assess generalization to unseen individuals, we implement a 15-fold Leave-One-Subject-Out (LOSO) evaluation scheme. In each fold $k \in \{1, \dots, 15\}$, data from one subject $S_k$ forms the test set $\mathcal{D}_{\text{test}}^{(k)}$. 
+
+To calibrate probabilities without data leakage, the remaining 14 subjects $\mathcal{D}_{\text{train}}^{(k)}$ are split via an inner 3-fold \texttt{GroupKFold} cross-validation grouped strictly by \texttt{subject\_id}. Raw model predictions from inner out-of-fold iterations are used to fit the Isotonic calibrator $g^{(k)}$. The calibrated pipeline is then evaluated on the untouched outer test subject $\mathcal{D}_{\text{test}}^{(k)}$.
+
+\subsection{Eight-Model Benchmark Suite (7 Tabular ML + 1 Deep MLP)}
+We benchmark eight distinct machine learning architectures under identical preprocessing and evaluation conditions:
+\begin{enumerate}
+    \item \textbf{Logistic Regression (LR):} L2-regularized linear model ($\text{max\_iter}=500$).
+    \item \textbf{Decision Tree (CART):} Decision tree with $\text{max\_depth}=5$.
+    \item \textbf{k-Nearest Neighbors (kNN):} Neighborhood classifier ($k=5$).
+    \item \textbf{AdaBoost:} Adaptive boosting with 50 decision stumps.
+    \item \textbf{Random Forest (RF):} Ensemble of 100 trees ($\text{max\_depth}=5$).
+    \item \textbf{LightGBM:} Gradient boosting (100 trees, $\text{max\_depth}=5$, $\text{learning\_rate}=0.08$).
+    \item \textbf{MLP (Deep Learning):} Multi-Layer Perceptron (architecture: 25--64--32--2, 3,810 parameters, ReLU, Adam optimizer, $\text{learning\_rate}=10^{-3}$, weight decay $10^{-4}$, early stopping on inner validation splits to prevent leakage).
+    \item \textbf{XGBoost (Proposed):} Gradient boosting (100 estimators, $\text{max\_depth}=5$, $\text{learning\_rate}=0.08$, subsample $0.8$, colsample $0.8$).
+\end{enumerate}
+
+\subsection{Statistical Evaluation and Bootstrap Confidence Intervals}
+Performance is reported using Macro-averaged $F_1$-score, Stress class $F_1$, and Usable Coverage:
+\begin{equation}
+\text{Coverage} = \frac{|\{x \in \mathcal{D}_{\text{test}} : \hat{y}(x) \neq \text{Abstain}\}|}{|\mathcal{D}_{\text{test}}|}
+\end{equation}
+Expected Calibration Error (ECE) is computed across $M=10$ equal-width probability bins:
+\begin{equation}
+\text{ECE} = \sum_{m=1}^M \frac{|B_m|}{N} \left| \text{acc}(B_m) - \text{conf}(B_m) \right|
+\end{equation}
+
+Statistical comparisons are conducted using Wilcoxon signed-rank tests with Holm-Bonferroni corrections ($p_{\text{holm}}$). To quantify uncertainty without distributional assumptions, we compute 95\% confidence intervals via subject-clustered paired bootstrap with $B=1,000$ iterations.
+
+\subsection{Motion-Induced False Alarm Metric ($\text{FAR}_{\text{motion}}$)}
+To quantify false alarm vulnerability during arm movement, let $\mathcal{M}_{\text{test}} = \{x \in \mathcal{D}_{\text{test}} \mid y=0, \ \text{Var}(\text{ACC}) \ge \theta_{\text{motion}}\}$ denote the subset of true non-stress windows under active movement ($N=295$ windows). Here $\theta_{\text{motion}} = 15.385$ represents the 80th percentile of acceleration variance across the entire WESAD dataset (1,059/5,294 windows), isolating the top quintile of active wrist articulations. Because an abstained window suppresses the audible/vibrational alarm, it is not counted as a false alarm. We define $\text{FAR}_{\text{motion}}$ over the full motion denominator:
+\begin{equation}
+\text{FAR}_{\text{motion}} = \frac{|\{x \in \mathcal{M}_{\text{test}} : \hat{y}(x) = 1\}|}{|\mathcal{M}_{\text{test}}|}
+\end{equation}
+
+% =========================================================================
+% V. RESULTS AND DISCUSSION
+% =========================================================================
+\section{Experimental Results and Discussion}
+
+\subsection{Eight-Model Benchmark Comparison (Answering RQ1)}
+
+Table~\ref{tab:benchmark_8_models} summarizes performance across all eight models under full coverage versus selective classification ($\tau = 0.80$).
+
+\begin{table*}[t]
+\caption{Performance benchmark across eight model architectures (seven tabular ML and one deep MLP) under 15-fold Leave-One-Subject-Out (LOSO) cross-validation on WESAD.}
+\label{tab:benchmark_8_models}
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccc|cc|ccccc}
+\toprule
+\multirow{2}{*}{\textbf{Model Architecture}} & \multicolumn{4}{c|}{\textbf{Full Coverage (100\%) Raw}} & \multicolumn{2}{c|}{\textbf{Isotonic Calibrated}} & \multicolumn{5}{c}{\textbf{Selective Classification ($\tau = 0.80$)}} \\
+& \textbf{Acc (\%)} & \textbf{Macro $F_1$} & \textbf{ECE} & $\text{FAR}_{\text{mot}}$ & \textbf{ECE} & $\text{FAR}_{\text{mot}}$ & \textbf{Coverage} & \textbf{Acc (\%)} & \textbf{Macro $F_1$} & \textbf{ECE} & $\text{FAR}_{\text{mot}}$ & \textbf{FAR Red.} \\
+\midrule
+Schmidt et al. (2018) \cite{schmidt2018wesad} (RF) & 87.12 & 84.11\% & -- & -- & -- & -- & 100.0\% & -- & -- & -- & -- & -- \\
+Logistic Regression & 88.93 & 88.00\% & 0.0460 & 23.05\% & 0.0469 & 24.41\% & 72.48\% & 93.54 & 92.23\% & 0.0485 & 10.17\% & 55.9\% \\
+Decision Tree (CART)& 82.43 & 81.09\% & 0.1468 & 22.71\% & 0.0973 & 11.86\% & 50.70\% & 91.73 & 85.94\% & 0.0465 & 3.05\% & 86.6\% \\
+k-Nearest Neighbors & 86.95 & 85.48\% & 0.0835 & 20.34\% & 0.0548 & 20.34\% & 64.94\% & 95.03 & 93.69\% & 0.0500 & 9.15\% & 55.0\% \\
+AdaBoost Classifier & 90.52 & 89.66\% & 0.2727 & 13.90\% & 0.0722 & 12.88\% & 77.13\% & 94.24 & 93.29\% & 0.0548 & 1.69\% & 87.8\% \\
+Random Forest       & 89.21 & 88.01\% & 0.0638 & 13.90\% & 0.0390 & 16.61\% & 75.03\% & 95.32 & 94.49\% & 0.0336 & 3.39\% & 75.6\% \\
+LightGBM            & 86.53 & 85.66\% & 0.0915 & 13.56\% & 0.0686 & 9.49\%  & 63.15\% & 95.09 & 93.65\% & 0.0333 & 1.36\% & \textbf{90.0\%} \\
+MLP (Deep Learning) & 89.63 & 88.95\% & 0.0312 & 24.00\% & 0.0336 & 25.63\% & 75.16\% & 95.76 & 95.38\% & 0.0179 & 10.17\% & 57.6\% \\
+\textbf{XGBoost (Proposed)} & \textbf{88.97} & \textbf{88.13\%} & \textbf{0.0612} & \textbf{12.20\%} & \textbf{0.0744} & \textbf{10.85\%} & \textbf{69.42\%} & \textbf{96.08} & \textbf{95.20\%} & \textbf{0.0290} & \textbf{4.07\%} & \textbf{66.6\%} \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{Images/fig_multimodel_benchmark.png}
+\caption{Cross-model performance comparison across eight algorithms (seven tabular ML + one deep MLP): (A) Motion-induced false alarm rate ($\text{FAR}_{\text{motion}}$) suppressed by 55.0\% to 90.0\% across all models; (B) Gains in Selective Macro $F_1$-score at threshold $\tau = 0.80$.}
+\label{fig:multimodel_benchmark}
+\end{figure*}
+
+Results across the benchmark indicate two primary findings:
+\begin{enumerate}
+    \item \textbf{Broad Motion Vulnerability:} Under mandatory full coverage (100\%), all models exhibit elevated false alarm rates during arm movement: $\text{FAR}_{\text{motion}}$ ranges from $12.20\%$ (XGBoost) to $24.00\%$ (MLP). Although the MLP achieves competitive overall discrimination ($F_1 = 88.95\%$), it also records the highest motion false alarm rate ($24.00\%$). This confirms that motion vulnerability is an inherent challenge across diverse algorithm families.
+    \item \textbf{Impact of Selective Abstention:} Applying selective classification at $\tau = 0.80$ reduces motion false alarms across \textbf{all eight architectures} (relative reductions between 55.0\% and 90.0\%), while raising Macro $F_1$ by +3.6 to +8.2 percentage points (kNN increases by +8.21 percentage points from 85.48\% to 93.69\%). XGBoost provides a balanced trade-off: limiting $\text{FAR}_{\text{motion}}$ to $4.07\%$ (a $66.6\%$ reduction relative to raw baseline) and achieving 95.20\% Selective Macro $F_1$ at 69.42\% coverage. While Random Forest achieves slightly higher coverage (75.03\%) with comparable FAR (3.39\%), XGBoost was prioritized as our primary model due to its direct compatibility with TreeSHAP exact attribution.
+\end{enumerate}
+
+\subsection{Tabular ML (XGBoost) vs. Deep Learning (MLP) (Answering RQ3)}
+Statistical evaluation using Wilcoxon signed-rank tests and cluster bootstrap differences across the 15 LOSO folds shows:
+\begin{itemize}
+    \item \textbf{Full Coverage Comparison:} In unconstrained full coverage, Macro $F_1$ between MLP ($88.95\%$) and XGBoost ($88.13\%$) shows no statistically significant difference ($W = 52.0, n_{\text{nonzero}} = 14, p = 0.975, r_{rb} = -0.010, p_{\text{holm}} = 1.0$). However, XGBoost shows lower baseline motion susceptibility ($\text{FAR}_{\text{motion}} = 12.20\%$ vs. $24.00\%$ for MLP).
+    \item \textbf{Selective Performance at $\tau = 0.80$:} Both models exceed 95\% Selective Macro $F_1$ ($95.38\%$ for MLP, $95.20\%$ for XGBoost). The subject-clustered paired bootstrap difference $(MLP - XGB)$ spans zero: $\Delta F_1 = +0.0117$ (95\% CI: $[-0.0256, +0.0513]$) and $\Delta \text{FAR}_{\text{sel}} = +2.03\%$ (95\% CI: $[-5.44\%, +8.54\%]$), indicating that selective abstention functions consistently across tabular and neural formulations.
+    \item \textbf{Subject-Level Stability:} On Subject S14 (evaluated in Fold 12), the MLP captures non-linear sudomotor cues ($F_{1,\text{stress}} = 97.2\%$), whereas tree algorithms underperform due to suppressed EDA amplitude. Conversely, the MLP exhibits complete abstention on Subject S17 (Fold 15), yielding 0\% coverage. In contrast, XGBoost maintains operational coverage across all 15 subjects ($69.42\%$ pooled, subject mean $69.6\% \pm 22.2\%$).
+    \item \textbf{Wearable Edge Systems Rationale:} From an embedded execution standpoint, both XGBoost and the compact MLP (approx. 3,810 parameters) require negligible inference time ($< 1$\,ms) on ARM Cortex-M4/M33 architectures. However, domain-engineered tree models offer direct interpretability through feature splits. In both paradigms, the primary computational latency resides in feature extraction (e.g., cvxEDA convex optimization), which can be offloaded or scheduled periodically on wearable hardware.
+\end{itemize}
+
+\subsection{Selective Trade-Offs and Detailed 15-Fold Evaluation (Answering RQ2 \& RQ3)}
+
+Table~\ref{tab:ketqua_full} outlines the selective trade-off profile of calibrated XGBoost across thresholds $\tau \in [0.60, 0.90]$. The reduction in motion false alarms is plotted in Fig.~\ref{fig:far_motion}, probability calibration via Reliability Diagrams is shown in Fig.~\ref{fig:calibration}, and the Risk-Coverage curve is presented in Fig.~\ref{fig:risk_coverage}.
+
+\begin{table}[htbp]
+\caption{Selective classification trade-off profile for XGBoost across confidence thresholds $\tau$ under 15-fold LOSO validation.}
+\label{tab:ketqua_full}
+\centering
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Configuration} & \textbf{Coverage} & \textbf{Macro $F_1$} & \textbf{Stress $F_1$} & \textbf{ECE} & $\text{FAR}_{\text{motion}}$ \\
+\midrule
+XGBoost (Raw Baseline 100\%)     & 100.0\% & 88.13\% & 84.99\% & 0.0612 & 12.20\% \\
+XGBoost + Isotonic (100\%)       & 100.0\% & 89.88\% & 86.68\% & 0.0744 & 10.85\% \\
+\midrule
+Selective ($\tau=0.60$)          & 89.76\% & 92.86\% & 90.45\% & 0.0534 & 7.46\% \\
+Selective ($\tau=0.70$)          & 81.79\% & 93.68\% & 91.28\% & 0.0406 & 4.41\% \\
+\textbf{Operational Selective ($\tau=0.80$)} & \textbf{69.42\%} & \textbf{95.20\%} & \textbf{93.15\%} & \textbf{0.0290} & \textbf{4.07\%} \\
+Conservative Selective ($\tau=0.90$)    & 50.38\% & 96.93\% & 95.54\% & 0.0161 & 0.68\% \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{Images/far_motion_reduction.png}
+\caption{Suppression of motion-induced false alarm rate ($\text{FAR}_{\text{motion}}$) from mandatory coverage to selective abstention.}
+\label{fig:far_motion}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{Images/calibration_curve.png}
+\caption{Reliability diagram: Isotonic calibration aligns XGBoost empirical probability outputs with the ideal diagonal reference.}
+\label{fig:calibration}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{Images/risk_coverage_curve.png}
+\caption{Risk-coverage trade-off curve across confidence thresholds $\tau \in [0.50, 0.95]$. Selective risk monotonically decreases as confidence threshold $\tau$ increases.}
+\label{fig:risk_coverage}
+\end{figure}
+
+\textbf{Benchmark Against Mechanical Gating and Random Abstention:} To evaluate whether selective confidence thresholding provides genuine diagnostic discrimination over heuristic rejection, we benchmark our proposed rule ($\tau = 0.80$) against two reference baselines:
+\begin{enumerate}
+    \item \textbf{Mechanical Gating Baseline ($\text{Abstain if } \text{Var}(\text{ACC}) \ge \theta_{\text{motion}}$):} By definition, mechanical gating abstains on all 1,059 high-motion windows (achieving 80.0\% coverage and trivially $\text{FAR}_{\text{motion}} = 0.0\%$). However, because TSST speaking and arithmetic naturally involve arm movements, mechanical gating indiscriminately discards \textbf{40.6\% of all genuine stress episodes (764 out of 1,882 stress windows)}. Consequently, on its retained subset, Stress $F_1$ drops to $84.16\%$ (Macro $F_1 = 89.36\%$).
+    \item \textbf{Random Abstention Baseline (Matched Coverage $= 69.42\%$):} Randomly abstaining on 30.58\% of windows yields Macro $F_1 = 89.80\% \pm 0.35\%$ and Stress $F_1 = 86.69\% \pm 0.48\%$, while $\text{FAR}_{\text{motion}}$ remains elevated at $6.78\% \pm 0.82\%$.
+    \item \textbf{Proposed Selective Classification ($\tau = 0.80$):} Our framework preserves valid stress episodes that occur during movement, achieving Stress $F_1 = \mathbf{93.15\%}$ and Macro $F_1 = \mathbf{95.20\%}$, while effectively halving motion false alarms to $\mathbf{4.07\%}$.
+\end{enumerate}
+
+Table~\ref{tab:per_subject_loso} and Fig.~\ref{fig:subject_loso_fold} report subject-by-subject metrics across all 15 WESAD participants ($S2 \rightarrow S17$).
+
+\begin{table*}[t]
+\caption{Subject-level performance across 15 Leave-One-Subject-Out (LOSO) test folds under calibrated XGBoost with selective classification ($\tau = 0.80$), labeled by original WESAD subject identifiers (Subject S14 evaluated in Fold 12; Subject S12 excluded due to sensor defect in WESAD).}
+\label{tab:per_subject_loso}
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccc|ccc|cccc}
+\toprule
+\multirow{2}{*}{\textbf{Fold / Subject}} & \multirow{2}{*}{\textbf{Windows $n$}} & \textbf{Stress Ratio} & \textbf{Motion Ratio} & \multicolumn{3}{c|}{\textbf{Mandatory Prediction (Full Coverage)}} & \multicolumn{4}{c}{\textbf{Selective Classification ($\tau = 0.80$)}} \\
+& & \textbf{(\%)} & \textbf{(\%)} & \textbf{$F_{1,\text{XGB}}$ (\%)} & \textbf{$F_{1,\text{Cal}}$ (\%)} & \textbf{$\text{FAR}_{\text{Cal}}$ (\%)} & \textbf{Coverage (\%)} & \textbf{$F_{1,\text{sel}}$ (\%)} & \textbf{Acc$_{\text{sel}}$ (\%)} & \textbf{$\text{FAR}_{\text{sel}}$ (\%)} \\
+\midrule
+Fold 1 (S2)  & 338 & 34.3\% & 18.9\% & 76.6\% & 71.8\% & 0.0\% & 73.1\% & 17.6\% & 88.7\% & 0.0\% \\
+Fold 2 (S3)  & 341 & 35.5\% & 24.0\% & 73.1\% & 71.2\% & 63.6\% & 59.8\% & 81.1\% & 77.0\% & 54.5\% \\
+Fold 3 (S4)  & 345 & 34.8\% & 15.1\% & 100.0\% & 100.0\% & 0.0\% & 100.0\% & 100.0\% & 100.0\% & 0.0\% \\
+Fold 4 (S5)  & 353 & 34.3\% & 5.4\% & 89.0\% & 92.1\% & 78.9\% & 71.7\% & 96.0\% & 97.6\% & 31.6\% \\
+Fold 5 (S6)  & 351 & 35.0\% & 4.6\% & 81.7\% & 94.2\% & 7.1\% & 53.8\% & 100.0\% & 100.0\% & 0.0\% \\
+Fold 6 (S7)  & 351 & 34.5\% & 17.4\% & 85.5\% & 90.6\% & -- & 60.4\% & 98.6\% & 98.6\% & -- \\
+Fold 7 (S8)  & 352 & 35.8\% & 24.7\% & 91.4\% & 90.9\% & 0.0\% & 84.1\% & 97.8\% & 99.0\% & 0.0\% \\
+Fold 8 (S9)  & 350 & 34.6\% & 8.6\% & 69.19\% & 64.8\% & 0.0\% & 87.4\% & 54.7\% & 84.3\% & 0.0\% \\
+Fold 9 (S10) & 365 & 37.5\% & 16.2\% & 69.23\% & 98.6\% & 0.0\% & 14.8\% & 100.0\% & 100.0\% & 0.0\% \\
+Fold 10 (S11)& 357 & 35.9\% & 32.2\% & 98.0\% & 100.0\% & 0.0\% & 94.4\% & 100.0\% & 100.0\% & 0.0\% \\
+Fold 11 (S13)& 354 & 35.6\% & 42.1\% & 90.0\% & 89.0\% & 0.0\% & 63.0\% & 100.0\% & 100.0\% & 0.0\% \\
+Fold 12 (S14)& 357 & 35.9\% & 20.2\% & 65.3\% & 24.7\% & -- & 64.1\% & 0.0\% & 96.1\% & -- \\
+Fold 13 (S15)& 358 & 36.3\% & 30.4\% & 89.0\% & 90.8\% & 6.8\% & 44.7\% & 100.0\% & 100.0\% & 0.0\% \\
+Fold 14 (S16)& 356 & 35.7\% & 11.5\% & 100.0\% & 100.0\% & 0.0\% & 95.5\% & 100.0\% & 100.0\% & 0.0\% \\
+Fold 15 (S17)& 366 & 37.4\% & 28.1\% & 98.2\% & 89.3\% & 30.0\% & 76.5\% & 100.0\% & 100.0\% & \textbf{0.0\%} \\
+\midrule
+\textbf{Mean $\pm$ SD} & \textbf{5294} & \textbf{35.5 $\pm$ 1.0\%} & \textbf{20.0 $\pm$ 10.5\%} & \textbf{85.1 $\pm$ 12.0\%} & \textbf{84.5 $\pm$ 19.9\%} & \textbf{14.3 $\pm$ 26.8\%} & \textbf{69.6 $\pm$ 22.2\%} & \textbf{83.1 $\pm$ 32.6\%} & \textbf{96.1 $\pm$ 7.1\%} & \textbf{6.6 $\pm$ 16.8\%} \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{Images/subject_loso_fold.png}
+\caption{Subject-level performance distribution across 15 LOSO test folds at $\tau = 0.80$: Selective Stress $F_{1,\text{sel}}$ (blue bars) and Usable Coverage (orange bars) plotted side-by-side for each WESAD participant ($S2 \rightarrow S17$) with dataset averages ($F_{1,\text{sel}} = 83.1\%$, Coverage $= 69.6\%$).}
+\label{fig:subject_loso_fold}
+\end{figure*}
+
+Analysis of individual variation in Table~\ref{tab:per_subject_loso} and Fig.~\ref{fig:subject_loso_fold} shows:
+\begin{enumerate}
+    \item On \textbf{8 of the 15 folds} (S4, S6, S10, S11, S13, S15, S16, S17), selective classification achieves Stress $F_{1,\text{sel}} = 100.0\%$, with two additional folds showing high performance (S7: 98.6\%, S8: 97.8\%).
+    \item Operational coverage averages $69.6\% \pm 22.2\%$ across subjects (pooled coverage 69.42\%), varying from $14.8\%$ on Subject S10 to $100.0\%$ on Subject S4, with average selective accuracy of $96.1\% \pm 7.1\%$. The pronounced drop in coverage for Subject S10 ($14.8\%$) reflects extreme model prudence under high inter-individual ambiguity, choosing to abstain on 85.2\% of borderline epochs to safeguard perfect diagnostic precision ($F_{1,\text{sel}} = 100.0\%$, $\text{FAR}_{\text{sel}} = 0.0\%$).
+    \item Selective false alarm rates $\text{FAR}_{\text{sel}}$ fall to $0.0\%$ across \textbf{11 of the 13 subjects} with high-motion non-stress windows, leaving only two subjects with residual false alarms (S3: 54.5\%, S5: 31.6\%).
+\end{enumerate}
+
+\subsection{Ablation Study: Acceleration Context (Answering RQ4 - Part 1)}
+To examine whether tri-axial accelerometry is essential or whether physiological channels alone suffice for uncertainty estimation, we conduct an ablation study across five random seeds (42, 123, 456, 789, 2024) using three configurations:
+\begin{itemize}
+    \item \textbf{Config A (Physio-only):} 19 features (BVP, EDA, TEMP).
+    \item \textbf{Config B (Context-aware):} 25 features (Physiological + 6 ACC).
+    \item \textbf{Config C (Kinematic-only):} 6 accelerometer features.
+\end{itemize}
+
+\begin{table}[htbp]
+\caption{Multi-seed ablation comparison (5 seeds) at $\tau = 0.80$ on WESAD LOSO (Mean $\pm$ Standard Deviation across random seeds).}
+\label{tab:ablation_seeds}
+\centering
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Coverage (\%)} & \textbf{Sel. Macro $F_1$ (\%)} & $\text{FAR}_{\text{motion}}^{\text{sel}}$ (\%) & $\text{FAR}_{\text{motion}}^{\text{full}}$ (\%) \\
+\midrule
+A: Physio-only (No ACC)  & $68.60 \pm 0.71$ & $92.98 \pm 0.61$ & $4.81 \pm 0.56$ & $13.69 \pm 0.74$ \\
+\textbf{B: Full Context (+ ACC)} & $\mathbf{69.60 \pm 0.33}$ & $\mathbf{94.79 \pm 0.50}$ & $\mathbf{3.46 \pm 0.65}$ & $\mathbf{10.44 \pm 0.44}$ \\
+C: Kinematic-only (ACC) & $45.14 \pm 0.93$ & $82.38 \pm 0.66$ & $6.10 \pm 1.59$ & $26.31 \pm 0.70$ \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{Images/ablation_acc_impact.png}
+\caption{Multi-metric ablation comparison at $\tau=0.80$: Accelerometer context increases usable coverage while limiting motion-induced false alarms.}
+\label{fig:ablation_acc}
+\end{figure}
+
+Results in Table~\ref{tab:ablation_seeds} and Fig.~\ref{fig:ablation_acc} show:
+\begin{enumerate}
+    \item \textbf{Numerical Consistency Across Seeds:} Adding 6 ACC features (Config B) numerically improves upon physiological features alone (Config A) across seeds. Average Selective Macro $F_1$ increases from $92.98\% \pm 0.61\%$ to $94.79\% \pm 0.50\%$ ($+1.81\%$), while selective motion false alarms $\text{FAR}_{\text{motion}}^{\text{sel}}$ drop from $4.81\% \pm 0.56\%$ to $3.46\% \pm 0.65\%$ (a $1.35\%$ reduction). In full coverage, ACC features reduce $\text{FAR}_{\text{motion}}^{\text{full}}$ from $13.69\%$ to $10.44\%$ ($-3.25\%$).
+    \item \textbf{Kinematic Baseline Evaluation (Config C):} Config C (ACC-only) achieves Selective Macro $F_1 = 82.38\% \pm 0.66\%$ (Stress $F_1 = 74.23\% \pm 1.11\%$). This likely occurs because the WESAD protocol involves standing presentation and mental arithmetic during TSST, naturally involving more spontaneous arm gestures than quiet reading or meditation. However, Config C yields severely reduced usable coverage ($45.14\%$) and elevated full-coverage false alarms ($\text{FAR}_{\text{motion}}^{\text{full}} = 26.31\%$), confirming that accelerometry alone is insufficient without autonomic biosignals.
+    \item \textbf{Statistical Testing Details and Effective Sample Pairs:} Paired Wilcoxon signed-rank tests across the 15 folds (seed 42) yield: $F_{1,\text{sel}}$ ($W = 9.0, p = 0.753, r_{rb} = 0.143$), $\text{FAR}_{\text{sel}}$ ($W = 1.0, p = 1.000, r_{rb} = -0.333$), and Coverage ($W = 37.0, p = 0.552, r_{rb} = 0.187$), with $p_{\text{holm}} = 1.000$. Paired cluster bootstrap intervals for difference $(B - A)$ span zero: $\Delta F_{1,\text{sel}} = +0.0342$ (95\% CI: $[-0.0278, +0.1469]$) and $\Delta \text{FAR}_{\text{sel}} = -1.0169\%$ (95\% CI: $[-4.5977, +1.0870]$). Across the 15 subjects, many participants exhibit zero false alarms under both configurations ($n_{\text{nonzero}} = 2$ for $\text{FAR}_{\text{sel}}$ and $n_{\text{nonzero}} = 6$ for $F_{1,\text{sel}}$), leaving few non-tied pairs for Wilcoxon testing ($p > 0.05$). While multi-seed runs demonstrate numerical consistency (+1.81\% Macro F1, -1.35\% FAR), statistical power is inherently bounded by cohort size ($N=15$).
+\end{enumerate}
+
+\subsection{TreeSHAP Attribution and Outlier Analysis (Answering RQ4 - Part 2)}
+
+\textbf{1) Global Modality Attribution:} TreeSHAP attribution \cite{lundberg2020local} across out-of-fold predictions (shown in Fig.~\ref{fig:shap}) indicates EDA accounts for $31.6\%$ of model attribution, followed by BVP/HRV ($26.6\%$), TEMP ($25.9\%$), and ACC ($15.9\%$). The primary individual features are \texttt{eda\_tonic\_mean} (13.6\%), \texttt{hrv\_mean\_hr} (12.3\%), \texttt{temp\_max} (10.6\%), and \texttt{eda\_scr\_peaks\_count} (10.3\%).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{Images/shap_summary.png}
+\caption{Global TreeSHAP feature attributions for wrist-based stress classification.}
+\label{fig:shap}
+\end{figure}
+
+\textbf{2) Local Abstention Patterns:} Examining rejected windows (\textit{Uncertain}) reveals conflicting feature indications: accelerometers register movement, while heart rate and skin conductance fluctuate ambiguously. This conflict yields intermediate posterior probabilities that trigger abstention.
+
+\textbf{3) Physiological Dissociation in Outlier Subject S14:} Fig.~\ref{fig:failure_s12} illustrates an outlier case on Subject S14 (evaluated in Fold 12). Data traces show Subject S14 exhibits traits of an \textit{electrodermal hypo-responder} \cite{boucsein2012electrodermal}: Standardized z-scores for \texttt{eda\_tonic\_mean} ($z = -0.90$) and \texttt{eda\_scr\_peaks\_count} ($z = -1.02$) demonstrate atypical electrodermal hypo-responsiveness. In Fig.~\ref{fig:failure_s12}B, comparing SHAP attributions against the cohort shows that \texttt{eda\_tonic\_mean} produces a substantial negative attribution differential ($-3.22$) toward Non-Stress, overriding sympathetic tachycardia ($z = +2.76$). This explains why standard EDA-weighted tree models struggle ($F_{1,\text{sel}} = 0.0\%$) on individuals with atypical sudomotor patterns, while the MLP exploited alternative non-linear combinations ($F_1 = 97.2\%$). Such localized failure modes emphasize the need for subject-adaptive thresholding in future work.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{Images/fig_failure_S12.png}
+\caption{Physiological dissociation on outlier Subject S14: Low electrodermal reactivity suppresses tachycardia-derived stress classifications.}
+\label{fig:failure_s12}
+\end{figure}
+
+% =========================================================================
+% VI. LIMITATIONS AND PRACTICAL CONSIDERATIONS
+% =========================================================================
+\section{Limitations and Practical Considerations}
+While our framework demonstrates substantial reductions in motion-induced false alarms, several methodological and practical limitations should be noted:
+\begin{enumerate}
+    \item \textbf{Single-Cohort Laboratory Dataset ($N=15$):} WESAD is a benchmark laboratory dataset with 15 subjects evaluated under controlled conditions (TSST, amusement, meditation). Stressors in daily living are more diverse and uncontrolled. Validating these models in naturalistic ambulatory environments is an essential next step.
+    \item \textbf{Protocol-Linked Accelerometry Confound:} In WESAD, the TSST stress protocol involves standing, speaking, and mental arithmetic, which inherently generate higher arm movement than sedentary baseline reading or guided meditation. Consequently, tri-axial accelerometry features carry protocol-specific predictive signals in lab conditions. Generalizing to real-world physical exercise requires datasets with dedicated exercise protocols.
+    \item \textbf{Operational vs. Adaptive Confidence Threshold:} While the operational threshold $\tau = 0.80$ provides an effective trade-off on pooled data, individual coverage varies from 14.8\% (Subject S10) to 100.0\% (Subject S4). Localized coverage drops show that static population thresholds can be overly conservative for certain individuals. Developing dynamic, personalized thresholds tailored to individual physiological baselines is a promising future direction.
+    \item \textbf{Embedded Feature Extraction Complexity:} Although tree inference and table lookups are lightweight ($< 1$\,ms), physiological feature extraction—particularly convex optimization in cvxEDA for electrodermal decomposition and FFT for spectral HRV—presents non-trivial latency and energy demands on ultra-low-power microcontrollers. Future work should explore approximate, integer-arithmetic feature extraction algorithms.
+\end{enumerate}
+
+% =========================================================================
+% VII. CONCLUSION
+% =========================================================================
+\section{Conclusion}
+This study evaluated wrist-based stress detection under mandatory 100\% prediction versus selective classification. Across eight model families evaluated under 15-fold LOSO cross-validation on WESAD, motion-induced false alarms proved widespread under forced prediction ($\text{FAR}_{\text{motion}} \approx 12.2\% - 24.0\%$), whereas selective classification suppressed these false alerts by 55.0\% to 90.0\%. The proposed framework yields strong reliability metrics (pooled Selective Macro $F_1 = 95.20\%$, ECE $= 0.0290$ on retained predictions, $\text{FAR}_{\text{motion}} = 4.07\%$) while maintaining $69.42\%$ operational coverage. Supported by TreeSHAP interpretability and validation across 15 participants, the approach provides practical design principles for trustworthy wearable health monitoring.
+
+% =========================================================================
+% REFERENCES (38 VERIFIED IEEE CITATIONS)
+% =========================================================================
+\begin{thebibliography}{00}
+\bibitem{cohen2007psychological}
+S.~Cohen, D.~Janicki-Deverts, and G.~E.~Miller, ``Psychological stress and disease,'' \textit{JAMA}, vol.~298, no.~14, pp. 1685--1687, 2007.
+
+\bibitem{schneiderman2005stress}
+N.~Schneiderman, G.~Ironson, and S.~D.~Siegel, ``Stress and health: Psychological, behavioral, and biological determinants,'' \textit{Annu. Rev. Clin. Psychol.}, vol.~1, pp. 607--628, 2005.
+
+\bibitem{can2019stress}
+Y.~S.~Can, B.~Arnrich, and C.~Ersoy, ``Stress detection in daily life scenarios using smart phones and wearable devices: A review,'' \textit{J. Biomed. Inform.}, vol.~92, p. 103139, 2019.
+
+\bibitem{gjoreski2016continuous}
+M.~Gjoreski, H.~Gjoreski, M.~Lu\v{s}trek, and M.~Gams, ``Continuous stress detection using a wrist device: In laboratory and real life,'' in \textit{Proc. ACM Int. Joint Conf. Pervasive Ubiquitous Comput. (UbiComp Adjunct)}, 2016, pp. 1185--1193.
+
+\bibitem{schmidt2018wesad}
+P.~Schmidt, A.~Reiss, R.~Duerichen, C.~Marberger, and K.~Van~Laerhoven, ``Introducing WESAD, a multimodal dataset for wearable stress and affect detection,'' in \textit{Proc. 20th ACM Int. Conf. Multimodal Interaction (ICMI)}, 2018, pp. 400--408.
+
+\bibitem{sano2015recognizing}
+A.~Sano, A.~J.~Phillips, A.~Z.~Yu, A.~W.~McHill, S.~Taylor, N.~Jaques, C.~A.~Czeisler, E.~B.~Klerman, and R.~W.~Picard, ``Recognizing academic performance, sleep quality, stress level, and mental health using personality traits, wearable sensors and mobile phones,'' in \textit{Proc. IEEE 12th Int. Conf. Wearable Implantable Body Sensor Netw. (BSN)}, 2015, pp. 1--6.
+
+\bibitem{schumm2008effect}
+J.~Schumm, M.~B\"achlin, C.~Setz, B.~Arnrich, D.~Roggen, and G.~Tr\"oster, ``Effect of movement on the electrodermal response after a startle event,'' \textit{Methods Inf. Med.}, vol.~47, no.~3, pp. 186--191, 2008.
+
+\bibitem{tamura2014wearable}
+T.~Tamura, Y.~Maeda, M.~Sekine, and M.~Yoshida, ``Wearable photoplethysmographic sensors---past and present,'' \textit{Electronics}, vol.~3, no.~2, pp. 282--302, 2014.
+
+\bibitem{zhang2014troika}
+Z.~Zhang, Z.~Pi, and B.~Liu, ``TROIKA: A general framework for heart rate monitoring using wrist-type photoplethysmographic signals during intensive physical exercise,'' \textit{IEEE Trans. Biomed. Eng.}, vol.~62, no.~2, pp. 522--531, 2015.
+
+\bibitem{boucsein2012electrodermal}
+W.~Boucsein, \textit{Electrodermal Activity}, 2nd~ed. New York, NY, USA: Springer Science \& Business Media, 2012.
+
+\bibitem{siirtola2019continuous}
+P.~Siirtola, ``Continuous stress detection using the sensors of commercial smartwatch,'' in \textit{Proc. ACM Int. Joint Conf. Pervasive Ubiquitous Comput. (UbiComp/ISWC Adjunct)}, 2019, pp. 1198--1201.
+
+\bibitem{bobade2020stress}
+P.~Bobade and M.~Vani, ``Stress detection with machine learning and deep learning using multimodal physiological data,'' in \textit{Proc. 2nd Int. Conf. Inventive Research in Computing Applications (ICIRCA)}, 2020, pp. 51--57.
+
+\bibitem{dalmeida2021hrv}
+K.~M.~Dalmeida and G.~L.~Masala, ``HRV features as viable physiological markers for stress detection using wearable devices,'' \textit{Sensors}, vol.~21, no.~8, p. 2873, 2021.
+
+\bibitem{behinaein2021transformer}
+B.~Behinaein, A.~Bhatti, D.~Rodenburg, P.~Hungler, and A.~Etemad, ``A transformer architecture for stress detection from ECG,'' in \textit{Proc. ACM Int. Symp. Wearable Comput. (ISWC)}, 2021, pp. 132--134.
+
+\bibitem{castaldo2015acute}
+R.~Castaldo, P.~Melillo, U.~Bracale, M.~Caserta, M.~Triassi, and L.~Pecchia, ``Acute mental stress assessment via short term HRV analysis in healthy adults: A systematic review with meta-analysis,'' \textit{Biomed. Signal Process. Control}, vol.~18, pp. 370--377, 2015.
+
+\bibitem{guo2017calibration}
+C.~Guo, G.~Pleiss, Y.~Sun, and K.~Q.~Weinberger, ``On calibration of modern neural networks,'' in \textit{Proc. 34th Int. Conf. Machine Learning (ICML)}, 2017, pp. 1321--1330.
+
+\bibitem{sendelbach2013alarm}
+S.~Sendelbach and M.~Funk, ``Alarm fatigue: A patient safety concern,'' \textit{AACN Adv. Crit. Care}, vol.~24, no.~4, pp. 378--386, 2013.
+
+\bibitem{chow1970optimum}
+C.~K.~Chow, ``On optimum recognition error and reject tradeoff,'' \textit{IEEE Trans. Inf. Theory}, vol.~16, no.~1, pp. 41--46, 1970.
+
+\bibitem{cortes2016learning}
+C.~Cortes, G.~DeSalvo, and M.~Mohri, ``Learning with rejection,'' in \textit{Proc. Int. Conf. Algorithmic Learning Theory (ALT)}, 2016, pp. 67--82.
+
+\bibitem{geifman2017selective}
+Y.~Geifman and R.~El-Yaniv, ``Selective classification for deep neural networks,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~30, 2017, pp. 4878--4887.
+
+\bibitem{geifman2019selectivenet}
+Y.~Geifman and R.~El-Yaniv, ``SelectiveNet: A deep neural network with an integrated reject option,'' in \textit{Proc. 36th Int. Conf. Machine Learning (ICML)}, 2019, pp. 2151--2159.
+
+\bibitem{grandvalet2008support}
+Y.~Grandvalet, A.~Rakotomamonjy, J.~Keshet, and S.~Canu, ``Support vector machines with a reject option,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~21, 2008, pp. 537--544.
+
+\bibitem{hendrickx2024machine}
+K.~Hendrickx, L.~Perini, D.~Van~der~Plas, W.~Meert, and J.~Davis, ``Machine learning with a reject option: A survey,'' \textit{Mach. Learn.}, vol.~113, no.~5, pp. 3073--3110, 2024.
+
+\bibitem{saeb2017need}
+S.~Saeb, L.~Lonini, A.~Jayaraman, D.~C.~Mohr, and K.~P.~Kording, ``The need to approximate the use-case in clinical machine learning,'' \textit{GigaScience}, vol.~6, no.~5, p. gix019, 2017.
+
+\bibitem{little2017using}
+M.~A.~Little, G.~Varoquaux, S.~Saeb, L.~Lonini, A.~Jayaraman, D.~C.~Mohr, and K.~P.~Kording, ``Using and understanding cross-validation strategies: Perspectives on Saeb et al.,'' \textit{GigaScience}, vol.~6, no.~5, p. gix020, 2017.
+
+\bibitem{lundberg2020local}
+S.~M.~Lundberg, G.~Erion, H.~Chen, A.~DeGrave, J.~M.~Prutkin, B.~Nair, R.~Katz, J.~Himmelfarb, N.~Bansal, and S.-I.~Lee, ``From local explanations to global understanding with explainable AI for trees,'' \textit{Nature Machine Intelligence}, vol.~2, no.~1, pp. 56--67, 2020.
+
+\bibitem{taskforce1996heart}
+Task Force of the European Society of Cardiology and the North American Society of Pacing and Electrophysiology, ``Heart rate variability: Standards of measurement, physiological interpretation, and clinical use,'' \textit{Circulation}, vol.~93, no.~5, pp. 1043--1065, 1996.
+
+\bibitem{garbarino2014empatica}
+M.~Garbarino, M.~Lai, D.~Bender, R.~W.~Picard, and S.~Tognetti, ``Empatica E3---A wearable wireless multi-sensor device for real-time computerized biofeedback and data acquisition,'' in \textit{Proc. 4th Int. Conf. Wirel. Mobile Commun. Healthc. (MobiHealth)}, 2014, pp. 39--42.
+
+\bibitem{platt1999probabilistic}
+J.~Platt, ``Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods,'' \textit{Adv. Large Margin Classif.}, vol.~10, no.~3, pp. 61--74, 1999.
+
+\bibitem{kull2017beta}
+M.~Kull, T.~Silva~Filho, and P.~Flach, ``Beta calibration: a well-founded and easily implemented alternative to logistic calibration for binary classifiers,'' in \textit{Proc. 20th Int. Conf. Artif. Intell. Stat. (AISTATS)}, 2017, pp. 623--631.
+
+\bibitem{zadrozny2002transforming}
+B.~Zadrozny and C.~Elkan, ``Transforming classifier scores into accurate multiclass probability estimates,'' in \textit{Proc. 8th ACM SIGKDD Int. Conf. Knowl. Discov. Data Min. (KDD)}, 2002, pp. 694--699.
+
+\bibitem{niculescu2005predicting}
+A.~Niculescu-Mizil and R.~Caruana, ``Predicting good probabilities with supervised learning,'' in \textit{Proc. 22nd Int. Conf. Machine Learning (ICML)}, 2005, pp. 625--632.
+
+\bibitem{chen2016xgboost}
+T.~Chen and C.~Guestrin, ``XGBoost: A scalable tree boosting system,'' in \textit{Proc. 22nd ACM SIGKDD Int. Conf. Knowl. Discov. Data Min. (KDD)}, 2016, pp. 785--794.
+
+\bibitem{shwartzziv2022tabular}
+R.~Shwartz-Ziv and R.~Armon, ``Tabular data: Deep learning is not all you need,'' \textit{Inf. Fusion}, vol.~81, pp. 84--90, 2022.
+
+\bibitem{grinsztajn2022why}
+L.~Grinsztajn, E.~Oyallon, and G.~Varoquaux, ``Why do tree-based models still outperform deep learning on typical tabular data?,'' in \textit{Advances in Neural Information Processing Systems (NeurIPS)}, vol.~35, 2022, pp. 507--520.
+
+\bibitem{borisov2024deep}
+V.~Borisov, T.~Leemann, K.~Se\ss{}ler, J.~Haug, M.~Pawelczyk, and G.~Kasneci, ``Deep neural networks and tabular data: A survey,'' \textit{IEEE Trans. Neural Netw. Learn. Syst.}, vol.~35, no.~6, pp. 7499--7519, 2024.
+
+\bibitem{greco2016cvxeda}
+A.~Greco, G.~Valenza, A.~Lanata, E.~P.~Scilingo, and R.~Citi, ``cvxEDA: A convex optimization approach to electrodermal activity processing,'' \textit{IEEE Trans. Biomed. Eng.}, vol.~63, no.~4, pp. 797--804, 2016.
+
+\bibitem{tarvainen2014kubios}
+M.~P.~Tarvainen, J.-P.~Niskanen, J.~A.~Lipponen, P.~O.~Ranta-Aho, and P.~A.~Karjalainen, ``Kubios HRV--heart rate variability analysis software,'' \textit{Comput. Methods Programs Biomed.}, vol.~113, no.~1, pp. 210--220, 2014.
+\end{thebibliography}
+
+\end{document}
