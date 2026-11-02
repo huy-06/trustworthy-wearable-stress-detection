@@ -140,7 +140,7 @@ Continuous recordings from the Empatica E4 wristband are partitioned into rollin
     \item \textbf{ACC Signal (32\,Hz):} Tri-axial acceleration values are combined into the Euclidean magnitude $a(t) = \sqrt{a_x^2(t) + a_y^2(t) + a_z^2(t)}$. Features include 6 metrics: magnitude mean, magnitude standard deviation, variance $\text{Var}(\text{ACC})$ (proxy for body movement intensity), maximum peak value, zero-crossing rate (ZCR), and spectral energy.
 \end{itemize}
 
-The final dataset comprises 5,294 observation windows across all 15 valid participants from WESAD ($S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S13, S14, S15, S16, S17$; noting that $S1$ was an initial protocol test and $S12$ was excluded by the dataset creators due to hardware sensor malfunction \cite{schmidt2018wesad}). These 15 participants are evaluated across 15 independent test folds. The standardized feature space consists of 25 continuous features.
+The final dataset comprises 5,294 observation windows across all 15 valid participants from WESAD ($S2, S3, \dots, S17$; noting that $S1$ was an initial protocol test and $S12$ was excluded by the dataset creators due to hardware sensor malfunction \cite{schmidt2018wesad}). These 15 participants are evaluated across 15 independent test folds. The standardized feature space consists of 25 continuous features.
 
 \subsection{Probability Calibration}
 Let $x \in \mathbb{R}^d$ represent the feature vector and $y \in \{0, 1\}$ denote the binary ground truth (0: Non-Stress, 1: Stress). The raw model score $f(x)$ is converted to a calibrated probability via monotonic Isotonic regression \cite{zadrozny2002transforming, niculescu2005predicting}:
@@ -149,7 +149,10 @@ Let $x \in \mathbb{R}^d$ represent the feature vector and $y \in \{0, 1\}$ denot
 \end{equation}
 where $g(\cdot)$ minimizes square loss subject to monotonicity constraints:
 \begin{equation}
-\min_{g} \sum_{i=1}^{N_{\text{cal}}} \left( y_i - g(f(x_i)) \right)^2 \quad \text{s.t.} \quad g(f(x_i)) \le g(f(x_j)) \ \forall \ f(x_i) \le f(x_j)
+\begin{aligned}
+\min_{g} \ & \sum_{i=1}^{N_{\text{cal}}} \left( y_i - g(f(x_i)) \right)^2 \\
+\text{s.t.} \ & g(f(x_i)) \le g(f(x_j)) \quad \forall \ f(x_i) \le f(x_j)
+\end{aligned}
 \end{equation}
 
 \subsection{Selective Decision Rule}
@@ -157,9 +160,9 @@ Let $\hat{p}_1 = \hat{P}(Y=1|x)$. We define an operational decision rule governi
 \begin{equation}
 \hat{y}(x) =
 \begin{cases}
-1 (\text{Stress}), & \text{if } \hat{p}_1 \ge \tau \\
-0 (\text{Non-Stress}), & \text{if } (1 - \hat{p}_1) \ge \tau \iff \hat{p}_1 \le 1 - \tau \\
-\text{Uncertain} (\text{Abstain}), & \text{if } 1 - \tau < \hat{p}_1 < \tau
+1 \ (\text{Stress}), & \text{if } \hat{p}_1 \ge \tau \\
+0 \ (\text{Non-Stress}), & \text{if } \hat{p}_1 \le 1 - \tau \\
+\text{Abstain}, & \text{if } 1 - \tau < \hat{p}_1 < \tau
 \end{cases}
 \end{equation}
 When the posterior probability falls into the ambiguity interval $(1-\tau, \tau)$, the model withholds classification. This selectively eliminates borderline predictions that disproportionately cause false alarms during physical motion.
@@ -192,7 +195,7 @@ To examine whether motion vulnerability and calibration benefits generalize acro
 \subsection{Statistical Evaluation and Bootstrap Confidence Intervals}
 Performance is reported using Macro-averaged $F_1$-score, Stress class $F_1$, and Usable Coverage:
 \begin{equation}
-\text{Coverage} = \frac{|\{x \in \mathcal{D}_{\text{test}} : \hat{y}(x) \neq \text{Uncertain}\}|}{|\mathcal{D}_{\text{test}}|}
+\text{Coverage} = \frac{|\{x \in \mathcal{D}_{\text{test}} : \hat{y}(x) \neq \text{Abstain}\}|}{|\mathcal{D}_{\text{test}}|}
 \end{equation}
 Expected Calibration Error (ECE) is computed across $M=10$ equal-width probability bins:
 \begin{equation}
@@ -202,9 +205,9 @@ Expected Calibration Error (ECE) is computed across $M=10$ equal-width probabili
 Statistical comparisons are conducted using Wilcoxon signed-rank tests with Holm-Bonferroni corrections ($p_{\text{holm}}$). To quantify uncertainty without distributional assumptions, we compute 95\% confidence intervals via subject-clustered paired bootstrap with $B=2,000$ iterations.
 
 \subsection{Motion-Induced False Alarm Metric ($\text{FAR}_{\text{motion}}$)}
-We define $\text{FAR}_{\text{motion}}$ to quantify false alarms during physical activity:
+To quantify false alarm vulnerability during physical movement without column overflow, let $\mathcal{M}_{\text{test}} = \{x \in \mathcal{D}_{\text{test}} \mid y=0, \ \text{Var}(\text{ACC}) \ge \theta_{\text{motion}}\}$ denote the subset of true non-stress windows under active wrist movement. We formalize $\text{FAR}_{\text{motion}}$ as:
 \begin{equation}
-\text{FAR}_{\text{motion}} = \frac{|\{x \in \mathcal{D}_{\text{test}} : y=0 \ \land \ \text{Var}(\text{ACC}) \ge \theta_{\text{motion}} \ \land \ \hat{y}(x)=1\}|}{|\{x \in \mathcal{D}_{\text{test}} : y=0 \ \land \ \text{Var}(\text{ACC}) \ge \theta_{\text{motion}} \ \land \ \hat{y}(x) \neq \text{Uncertain}\}|}
+\text{FAR}_{\text{motion}} = \frac{|\{x \in \mathcal{M}_{\text{test}} : \hat{y}(x) = 1\}|}{|\{x \in \mathcal{M}_{\text{test}} : \hat{y}(x) \neq \text{Abstain}\}|}
 \end{equation}
 where $\theta_{\text{motion}} = 15.385$\,$\text{m}^2/\text{s}^4$ represents the 80th percentile of variance in acceleration across non-stress intervals in WESAD, capturing active wrist articulations.
 

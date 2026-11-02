@@ -141,7 +141,7 @@ Dữ liệu liên tục từ vòng đeo tay Empatica E4 được phân đoạn t
     \item \textbf{Tín hiệu ACC (32\,Hz):} Gia tốc ba trục được tính độ lớn vector Euclidean $a(t) = \sqrt{a_x^2(t) + a_y^2(t) + a_z^2(t)}$. Trích xuất đủ 6 đặc trưng: giá trị trung bình, độ lệch chuẩn, phương sai $\text{Var}(\text{ACC})$ (đại diện cho cường độ rung lắc cơ học), giá trị đỉnh cực đại, tỷ lệ qua điểm không (ZCR), và năng lượng phổ tín hiệu.
 \end{itemize}
 
-Tập dữ liệu hoàn chỉnh gồm 5.294 cửa sổ quan sát trên toàn bộ 15 đối tượng hợp lệ của WESAD ($S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S13, S14, S15, S16, S17$; trong đó $S1$ là phiên chạy thử nghiệm giao thức và $S12$ bị lỗi phần cứng cảm biến đã được nhóm tác giả WESAD loại bỏ từ đầu \cite{schmidt2018wesad}). Không gian đặc trưng chuẩn hóa gồm đúng 25 đặc trưng liên tục.
+Tập dữ liệu hoàn chỉnh gồm 5.294 cửa sổ quan sát trên toàn bộ 15 đối tượng hợp lệ của WESAD ($S2, S3, \dots, S17$; trong đó $S1$ là phiên chạy thử nghiệm giao thức và $S12$ bị lỗi phần cứng cảm biến đã được nhóm tác giả WESAD loại bỏ từ đầu \cite{schmidt2018wesad}). Không gian đặc trưng chuẩn hóa gồm đúng 25 đặc trưng liên tục.
 
 \subsection{Hiệu chuẩn Xác suất Hậu nghiệm}
 Gọi $x \in \mathbb{R}^d$ là vector đặc trưng và $y \in \{0, 1\}$ là nhãn thực tế (0: Không Stress, 1: Căng thẳng). Đầu ra thô $f(x)$ của mô hình được chuyển đổi thành xác suất hiệu chuẩn qua hàm hồi quy Isotonic đơn điệu \cite{zadrozny2002transforming, niculescu2005predicting}:
@@ -150,7 +150,10 @@ Gọi $x \in \mathbb{R}^d$ là vector đặc trưng và $y \in \{0, 1\}$ là nh�
 \end{equation}
 trong đó $g(\cdot)$ tối thiểu hóa hàm mất mát bình phương dưới ràng buộc đơn điệu:
 \begin{equation}
-\min_{g} \sum_{i=1}^{N_{\text{cal}}} \left( y_i - g(f(x_i)) \right)^2 \quad \text{s.t.} \quad g(f(x_i)) \le g(f(x_j)) \ \forall \ f(x_i) \le f(x_j)
+\begin{aligned}
+\min_{g} \ & \sum_{i=1}^{N_{\text{cal}}} \left( y_i - g(f(x_i)) \right)^2 \\
+\text{s.t.} \ & g(f(x_i)) \le g(f(x_j)) \quad \forall \ f(x_i) \le f(x_j)
+\end{aligned}
 \end{equation}
 
 \subsection{Quy tắc Phán đoán Chọn lọc}
@@ -158,9 +161,9 @@ Gọi $\hat{p}_1 = \hat{P}(Y=1|x)$. Chúng tôi thiết lập quy tắc phán đ
 \begin{equation}
 \hat{y}(x) =
 \begin{cases}
-1 (\text{Căng thẳng}), & \text{nếu } \hat{p}_1 \ge \tau \\
-0 (\text{Bình thường}), & \text{nếu } (1 - \hat{p}_1) \ge \tau \iff \hat{p}_1 \le 1 - \tau \\
-\text{Bất định} (\text{Từ chối phán đoán}), & \text{nếu } 1 - \tau < \hat{p}_1 < \tau
+1 \ (\text{Căng thẳng}), & \text{nếu } \hat{p}_1 \ge \tau \\
+0 \ (\text{Bình thường}), & \text{nếu } \hat{p}_1 \le 1 - \tau \\
+\text{Bất định}, & \text{nếu } 1 - \tau < \hat{p}_1 < \tau
 \end{cases}
 \end{equation}
 Khi xác suất hậu nghiệm rơi vào khoảng lưỡng lự $(1-\tau, \tau)$, hệ thống bảo lưu quyết định (Abstain). Cơ chế này chủ động gạt bỏ các mẫu nằm ở vùng biên phán đoán vốn là nguồn cơn gây ra phần lớn các báo động giả khi người dùng cử động.
@@ -203,9 +206,9 @@ Sai số hiệu chuẩn kỳ vọng ECE được tính trên $M=10$ khoảng xá
 So sánh thống kê được thực hiện bằng kiểm định cặp Wilcoxon signed-rank kèm hiệu chỉnh Holm-Bonferroni ($p_{\text{holm}}$). Khoảng tin cậy 95\% được ước tính qua phương pháp Bootstrap theo cụm đối tượng với $B=2.000$ lần lặp lại.
 
 \subsection{Chỉ số Báo động Giả khi Vận động ($\text{FAR}_{\text{motion}}$)}
-Chỉ số $\text{FAR}_{\text{motion}}$ được định nghĩa để đo lường tỷ lệ báo động nhầm trong các pha vận động:
+Để đo lường tỷ lệ báo động giả khi vận động mà không làm tràn cột hiển thị, gọi $\mathcal{M}_{\text{test}} = \{x \in \mathcal{D}_{\text{test}} \mid y=0, \ \text{Var}(\text{ACC}) \ge \theta_{\text{motion}}\}$ là tập hợp các cửa sổ bình thường (không căng thẳng) nhưng có vận động tay mạnh. Chỉ số $\text{FAR}_{\text{motion}}$ được định nghĩa như sau:
 \begin{equation}
-\text{FAR}_{\text{motion}} = \frac{|\{x \in \mathcal{D}_{\text{test}} : y=0 \ \land \ \text{Var}(\text{ACC}) \ge \theta_{\text{motion}} \ \land \ \hat{y}(x)=1\}|}{|\{x \in \mathcal{D}_{\text{test}} : y=0 \ \land \ \text{Var}(\text{ACC}) \ge \theta_{\text{motion}} \ \land \ \hat{y}(x) \neq \text{Bất định}\}|}
+\text{FAR}_{\text{motion}} = \frac{|\{x \in \mathcal{M}_{\text{test}} : \hat{y}(x) = 1\}|}{|\{x \in \mathcal{M}_{\text{test}} : \hat{y}(x) \neq \text{Bất định}\}|}
 \end{equation}
 với $\theta_{\text{motion}} = 15,385$\,$\text{m}^2/\text{s}^4$ là phân vị thứ 80 của phương sai gia tốc trên các đoạn không căng thẳng trong WESAD, ghi nhận các chuyển động tay rõ rệt.
 
