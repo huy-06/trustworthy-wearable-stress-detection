@@ -32,7 +32,7 @@ This research project introduces an end-to-end **Trustworthy Stress Detection Fr
 ========================================================================================================
 [EMPATICA E4 WRIST SENSORS]
 ├── BVP (64 Hz)  ──> Bandpass (0.5 - 8 Hz) ──> Inter-Beat Intervals (IBI) ──> HRV Metrics (SDNN, RMSSD, HF, LF)
-├── EDA (4 Hz)   ──> cvxEDA Decomposition  ──> Tonic (SCL) & Phasic (SCR) ──> Tonic Mean, SCR Peaks, Phasic Energy
+├── EDA (4 Hz)   ──> High-Pass Filtering   ──> Tonic (SCL) & Phasic (SCR) ──> Tonic Mean, SCR Peaks, Phasic Energy
 ├── TEMP (4 Hz)  ──> Anti-aliasing Filter  ──> Thermal Dissipation        ──> Mean, Std, Max, Min, Slope
 └── ACC (32 Hz)  ──> Euclidean Norm ||a||  ──> Kinematic Magnitude        ──> Mean, Var, Max, ZCR, Energy
 ========================================================================================================
